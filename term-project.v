@@ -215,30 +215,275 @@ Definition specification_of_interpret (interpret : source_program -> expressible
     forall ae : arithmetic_expression,
       interpret (Source_program ae) = evaluate ae.
 
+
 (* Task 1: 
    a. time permitting, prove that each of the definitions above specifies at most one function;
    b. implement these two functions; and
    c. verify that each of your functions satisfies its specification.
 *)
 
-(*
-Fixpoint evaluate (ae : arithmetic_expression) : expressible_value :=
-  ...
+Fixpoint evaluate_cps (ae : arithmetic_expression)
+         (k : nat -> expressible_value) : expressible_value :=
+  match ae with
+  | Literal n =>
+    k n
+  | Plus ae1 ae2 =>
+    evaluate_cps ae1 (fun n1 =>
+                        evaluate_cps ae2 (fun n2 => k (n1 + n2)))
+  | Minus ae1 ae2 =>
+     evaluate_cps ae1 (fun n1 =>
+                         evaluate_cps ae2
+                                      (fun n2 =>
+                                         match n1 <? n2 with
+                                         | true =>
+                                           Expressible_msg
+                                             (String.append "numerical underflow: -"
+                                                            (string_of_nat (n2 - n1)))
+                                         | false =>
+                                           k (n1 - n2)
+                                         end))
+  end.
 
+Definition evaluate (ae : arithmetic_expression) :=
+  evaluate_cps ae (fun n => Expressible_nat n).
+
+Compute (evaluate (Plus (Plus (Literal 1) (Literal 2)) (Literal 2 ))).
+Compute (evaluate (Minus (Literal 1) (Literal 2))).
+
+
+Lemma fold_unfold_evaluate_cps_Literal :
+  forall (n : nat) (k : nat -> expressible_value),
+    evaluate_cps (Literal n) k = k n.
+Proof.
+  fold_unfold_tactic evaluate_cps.
+Qed.
+
+Lemma fold_unfold_evaluate_cps_Plus :
+  forall (ae1 ae2 : arithmetic_expression) (k : nat -> expressible_value),
+    evaluate_cps (Plus ae1 ae2) k =
+    evaluate_cps ae1 (fun n1 =>
+                        evaluate_cps ae2 (fun n2 => k (n1 + n2))).
+Proof.
+  fold_unfold_tactic evaluate_cps.
+Qed.
+
+Lemma fold_unfold_evaluate_cps_Minus :
+  forall (ae1 ae2 : arithmetic_expression) (k : nat -> expressible_value),
+    evaluate_cps (Minus ae1 ae2) k =
+    evaluate_cps ae1 (fun n1 =>
+                        evaluate_cps ae2 (fun n2 =>
+                                            match n1 <? n2 with
+                                            | true =>
+                                              Expressible_msg
+                                                (String.append "numerical underflow: -"
+                                                               (string_of_nat (n2 - n1)))
+                                            | false =>
+                                              k (n1 - n2)
+                                            end)).
+Proof.
+  fold_unfold_tactic evaluate_cps.
+Qed.
+
+Lemma about_evaluate_cps :
+  forall evaluate : arithmetic_expression -> expressible_value,
+    specification_of_evaluate evaluate ->
+    forall ae : arithmetic_expression,
+      (exists n : nat,
+          evaluate ae = Expressible_nat n
+          /\
+          forall k : nat -> expressible_value,
+            evaluate_cps ae k = k n)
+      \/
+      (exists s : string,
+          evaluate ae = Expressible_msg s
+          /\
+          forall k : nat -> expressible_value,
+            evaluate_cps ae k = Expressible_msg s).
+Proof.
+  intros evaluate S_evaluate ae.
+  induction ae as [n
+                  | ae1 [[n1  [IHae1 IHae1_cps]] | [s1 [IHae1 IHae1_cps]]]
+                        ae2 [[n2  [IHae2 IHae2_cps]] | [s2  [IHae2 IHae2_cps]]]
+                  | ae1 [[n1  [IHae1 IHae1_cps]] | [s1 [IHae1 IHae1_cps]]]
+                        ae2 [[n2  [IHae2 IHae2_cps]] | [s2  [IHae2 IHae2_cps]]]];
+    unfold specification_of_evaluate in S_evaluate.
+  (* ae is Literal *)
+  + left.
+    destruct S_evaluate as [S_Literal _].
+    exists n.
+    split.
+    ++ exact (S_Literal n).
+    ++ intro k.
+       rewrite -> fold_unfold_evaluate_cps_Literal.
+       reflexivity.
+    (* ae is Plus *)
+  + left.
+    destruct S_evaluate as [_ [[_ [_ S_Plus_n1n2]] _]].
+    Check (S_Plus_n1n2 ae1 ae2 n1 n2 IHae1 IHae2).
+    exists (n1 + n2).
+    split.
+    ++ exact (S_Plus_n1n2 ae1 ae2 n1 n2 IHae1 IHae2).
+    ++ intro k.
+       rewrite -> fold_unfold_evaluate_cps_Plus.
+       Check (IHae1_cps (fun n0 : nat =>
+                           evaluate_cps ae2 (fun n3 : nat => k (n0 + n3)))).
+       rewrite -> (IHae1_cps (fun n0 : nat =>
+                                evaluate_cps ae2 (fun n3 : nat => k (n0 + n3)))).
+       rewrite -> (IHae2_cps (fun n0 : nat => k (n1 + n0))).
+       reflexivity.
+  + right.
+    destruct S_evaluate as [_ [[_ [S_Plus_n1_s2 _]] _]].
+    Check (S_Plus_n1_s2 ae1 ae2 n1 s2 IHae1 IHae2).
+    exists s2.
+    split.
+    ++ exact (S_Plus_n1_s2 ae1 ae2 n1 s2 IHae1 IHae2).
+    ++ intro k.
+       rewrite -> fold_unfold_evaluate_cps_Plus.
+       rewrite -> (IHae1_cps (fun n0 : nat =>
+                               evaluate_cps ae2 (fun n2 : nat => k (n0 + n2)))).
+       rewrite -> (IHae2_cps (fun n2 : nat => k (n1 + n2))).
+       reflexivity.
+  + right.
+    destruct S_evaluate as [_ [[S_Plus_s1_n2 [_ _]] _]].
+    exists s1.
+    split.
+    ++ exact (S_Plus_s1_n2 ae1 ae2 s1 IHae1).
+    ++ intro k.
+       rewrite -> fold_unfold_evaluate_cps_Plus.
+       rewrite -> IHae1_cps.
+       reflexivity.
+  + right.
+    exists s1.
+    destruct S_evaluate as [_ [[S_Plus_s1_n2 [_ _]] _]].
+    split.
+    ++ exact (S_Plus_s1_n2 ae1 ae2 s1 IHae1).
+    ++ intro k.
+       rewrite -> fold_unfold_evaluate_cps_Plus.
+       rewrite -> (IHae1_cps
+                     (fun n1 : nat =>
+                        evaluate_cps ae2 (fun n2 : nat => k (n1 + n2)))).
+       reflexivity.
+   (* ae is Minus *)
+  + case (n1 <? n2) eqn:H_n1_n2.
+    ++ right.
+       destruct S_evaluate as [_ [_ [_ [_ [S_Minus_n1_n2_msg _]]]]].
+       Check (S_Minus_n1_n2_msg ae1 ae2 n1 n2 IHae1 IHae2 H_n1_n2).
+       exists (String.append
+                 "numerical underflow: -" (string_of_nat (n2 - n1))).
+       split.
+       +++ exact (S_Minus_n1_n2_msg ae1 ae2 n1 n2 IHae1 IHae2 H_n1_n2).
+       +++ intro k.
+           rewrite -> fold_unfold_evaluate_cps_Minus.
+           rewrite -> IHae1_cps.
+           rewrite -> IHae2_cps.
+           rewrite -> H_n1_n2.
+           reflexivity.
+    ++ left.
+       destruct S_evaluate as [_ [_ [_ [_ [_ S_Minus_n1_n2_nat]]]]].
+       Check (S_Minus_n1_n2_nat ae1 ae2 n1 n2 IHae1 IHae2 H_n1_n2).
+       exists (n1 - n2).
+       split.
+       +++ exact (S_Minus_n1_n2_nat ae1 ae2 n1 n2 IHae1 IHae2 H_n1_n2).
+       +++ intro k.
+           rewrite -> fold_unfold_evaluate_cps_Minus.
+           rewrite -> IHae1_cps.
+           rewrite -> IHae2_cps.
+           rewrite -> H_n1_n2.
+           reflexivity.
+  + right.
+    destruct S_evaluate as [_ [_ [_ [S_Minus_n1_s2 _]]]].
+    Check (S_Minus_n1_s2 ae1 ae2 n1 s2 IHae1 IHae2).
+    exists s2.
+    split.
+    ++ exact (S_Minus_n1_s2 ae1 ae2 n1 s2 IHae1 IHae2).
+    ++ intro k.
+       rewrite -> fold_unfold_evaluate_cps_Minus.
+       rewrite -> IHae1_cps.
+       rewrite -> IHae2_cps.
+       reflexivity.
+  + right.
+    destruct S_evaluate as [_ [_ [S_Minus_s1_n2 _]]].
+    Check (S_Minus_s1_n2 ae1 ae2 s1 IHae1).
+    exists s1.
+    split.
+    ++ exact (S_Minus_s1_n2 ae1 ae2 s1 IHae1).
+    ++ intro k.
+       rewrite -> fold_unfold_evaluate_cps_Minus.
+       rewrite -> IHae1_cps.
+       reflexivity.
+  + right.
+    destruct S_evaluate as [_ [_ [S_Minus_s1_n2 _]]].
+    Check (S_Minus_s1_n2 ae1 ae2 s1 IHae1).
+    exists s1.
+    split.
+    ++ exact (S_Minus_s1_n2 ae1 ae2 s1 IHae1).
+    ++ intro k.
+       rewrite -> fold_unfold_evaluate_cps_Minus.
+       rewrite -> IHae1_cps.
+       reflexivity.
+Qed.
+
+
+(* probably wrong way to go about it *)
 Theorem evaluate_satisfies_the_specification_of_evaluate :
   specification_of_evaluate evaluate.
 Proof.
-Abort.
+  unfold evaluate, specification_of_evaluate.
+  split.
+  + intro n.
+    rewrite -> fold_unfold_evaluate_cps_Literal.
+    reflexivity.
+  + split; split.
+    ++ intros ae1 ae2 s1 IHae.
+       rewrite -> fold_unfold_evaluate_cps_Plus.
+       Admitted.
+           
+          
 
 Definition interpret (sp : source_program) : expressible_value :=
-  ...
+    match sp with
+  | Source_program ae =>
+    evaluate_cps ae (fun (n : nat) => Expressible_nat n)
+  end.
 
 Theorem interpret_satisfies_the_specification_of_interpret :
   specification_of_interpret interpret.
 Proof.
-Abort.
+  unfold specification_of_interpret.
+  intros evaluate S_evaluate ae.
+  Check (about_evaluate_cps evaluate S_evaluate ae).
+  destruct (about_evaluate_cps evaluate S_evaluate ae)
+    as [[n [H_eval H_eval_cps]] | [s [H_eval H_eval_cps]]];
+    unfold interpret;
+    rewrite (H_eval_cps (fun n => Expressible_nat n));
+    exact (eq_sym H_eval).
+Qed.
+
+
+(*
+Theorem there_exists_at_most_one_evaluate_function :
+  forall (ev1 ev2 : arithmetic_expression -> expressible_value),
+    specification_of_evaluate ev1 ->
+    specification_of_evaluate ev2 ->
+    forall (ae : arithmetic_expression),
+      ev1 ae = ev2 ae.
+Proof.
+  intros ev1 ev2 ev1_spec ev2_spec ae.
+  case ae.
+  + intro n.
+    destruct ev1_spec as [ev1_spec_literal _].
+    destruct ev2_spec as [ev2_spec_literal _].
+    rewrite -> ev2_spec_literal.
+    exact (ev1_spec_literal n).
+  + intros ae1 ae2.
+    destruct ev1_spec.
+    
+  destruct ev1_spec.
+
+Started but realized it was the least important on the list 
 *)
 
+  
 (* ********** *)
 
 (* Byte-code instructions: *)
@@ -291,6 +536,7 @@ Definition specification_of_decode_execute (decode_execute : byte_code_instructi
            (ds : data_stack),
        n1 <? n2 = false ->
        decode_execute SUB (n2 :: n1 :: ds) = OK ((n1 - n2) :: ds))).
+
 
 (* Task 2:
    a. time permitting, prove that the definition above specifies at most one function;
