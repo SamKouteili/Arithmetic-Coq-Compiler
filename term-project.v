@@ -221,293 +221,6 @@ Definition specification_of_interpret (interpret : source_program -> expressible
    c. verify that each of your functions satisfies its specification.
 *)
 
-Fixpoint evaluate_cps (ae : arithmetic_expression) (k : nat -> expressible_value) : expressible_value :=
-  match ae with
-  | Literal n =>
-    k n
-  | Plus ae1 ae2 =>
-    evaluate_cps ae1 (fun n1 =>
-                        evaluate_cps ae2 (fun n2 =>
-                                            k (n1 + n2)))
-  | Minus ae1 ae2 =>
-    evaluate_cps ae1 (fun n1 =>
-                        evaluate_cps ae2 (fun n2 =>
-                                            match n1 <? n2 with
-                                            | true =>
-                                              Expressible_msg
-                                                (String.append "numerical underflow: -" (string_of_nat (n2 - n1)))
-                                            | false =>
-                                              k (n1 - n2)
-                                            end))
-  end.
-
-Lemma fold_unfold_evaluate_cps_Literal :
-  forall (n : nat)
-         (k : nat -> expressible_value),
-    evaluate_cps (Literal n) k =
-    k n.
-Proof.
-  fold_unfold_tactic evaluate_cps.
-Qed.
-
-Lemma fold_unfold_evaluate_cps_Plus :
-  forall (ae1 ae2 : arithmetic_expression)
-         (k : nat -> expressible_value),
-    evaluate_cps (Plus ae1 ae2) k =
-    evaluate_cps ae1 (fun n1 =>
-                        evaluate_cps ae2 (fun n2 =>
-                                            k (n1 + n2))).
-Proof.
-  fold_unfold_tactic evaluate_cps.
-Qed.
-
-Lemma fold_unfold_evaluate_cps_Minus :
-  forall (ae1 ae2 : arithmetic_expression)
-         (k : nat -> expressible_value),
-    evaluate_cps (Minus ae1 ae2) k =
-    evaluate_cps ae1 (fun n1 =>
-                        evaluate_cps ae2 (fun n2 =>
-                                            match n1 <? n2 with
-                                            | true =>
-                                              Expressible_msg
-                                                (String.append "numerical underflow: -" (string_of_nat (n2 - n1)))
-                                            | false =>
-                                              k (n1 - n2)
-                                            end)).
-Proof.
-  fold_unfold_tactic evaluate_cps.
-Qed.
-
-Lemma about_evaluate_cps :
-  forall evaluate : arithmetic_expression -> expressible_value,
-    specification_of_evaluate evaluate ->
-    forall ae : arithmetic_expression,
-      (exists n : nat,
-          evaluate ae = Expressible_nat n
-          /\
-          forall k : nat -> expressible_value,
-            evaluate_cps ae k = k n)
-      \/
-      (exists s : string,
-          evaluate ae = Expressible_msg s
-          /\
-          forall k : nat -> expressible_value,
-            evaluate_cps ae k = Expressible_msg s).
-Proof.
-  intros evaluate S_evaluate ae.
-  induction ae as [n |
-                   ae1 [[n1 [IHae1 IHae1_cps]] | [s1 [IHae1 IHae1_cps]]] ae2 [[n2 [IHae2 IHae2_cps]] | [s2 [IHae2 IHae2_cps]]] |
-                   ae1 [[n1 [IHae1 IHae1_cps]] | [s1 [IHae1 IHae1_cps]]] ae2 [[n2 [IHae2 IHae2_cps]] | [s2 [IHae2 IHae2_cps]]]].
-  - unfold specification_of_evaluate in S_evaluate.
-    destruct S_evaluate as [S_Literal _].
-    left.
-    exists n.
-    split.
-    + exact (S_Literal n).
-    + intro k.
-      rewrite -> fold_unfold_evaluate_cps_Literal.
-      reflexivity.
-  - unfold specification_of_evaluate in S_evaluate.
-    destruct S_evaluate as [_ [[_ [_ S_Plus_n1_n2]] _]].
-    Check (S_Plus_n1_n2
-             ae1
-             ae2
-             n1
-             n2
-             IHae1
-             IHae2).
-    left.
-    exists (n1 + n2).
-    split.
-    + exact (S_Plus_n1_n2
-             ae1
-             ae2
-             n1
-             n2
-             IHae1
-             IHae2).
-    + intro k.
-      rewrite -> fold_unfold_evaluate_cps_Plus.
-      Check (IHae1_cps (fun n0 : nat => evaluate_cps ae2 (fun n3 : nat => k (n0 + n3)))).
-      rewrite -> (IHae1_cps (fun n0 : nat => evaluate_cps ae2 (fun n3 : nat => k (n0 + n3)))).
-      rewrite -> (IHae2_cps (fun n3 : nat => k (n1 + n3))).
-      reflexivity.
-  - right.
-    unfold specification_of_evaluate in S_evaluate.
-    destruct S_evaluate as [_ [[_ [S_Plus_n1_s2 _]] _]].
-    Check (S_Plus_n1_s2
-             ae1
-             ae2
-             n1
-             s2
-             IHae1
-             IHae2).
-    exists s2.
-    split.
-    + exact (S_Plus_n1_s2
-             ae1
-             ae2
-             n1
-             s2
-             IHae1
-             IHae2).
-    + intro k.
-      rewrite -> fold_unfold_evaluate_cps_Plus.
-      rewrite -> (IHae1_cps (fun n0 : nat => evaluate_cps ae2 (fun n2 : nat => k (n0 + n2)))).
-      rewrite -> (IHae2_cps (fun n2 : nat => k (n1 + n2))).
-      reflexivity.
-  - right.
-    unfold specification_of_evaluate in S_evaluate.
-    destruct S_evaluate as [_ [[S_Plus_s1_n2 [_ _]] _]].
-    Check (S_Plus_s1_n2
-             ae1
-             ae2
-             s1
-             IHae1).
-    exists s1.
-    split.
-    + exact (S_Plus_s1_n2
-             ae1
-             ae2
-             s1
-             IHae1).
-    + intro k.
-      rewrite -> fold_unfold_evaluate_cps_Plus.
-      rewrite -> (IHae1_cps (fun n1 : nat => evaluate_cps ae2 (fun n0 : nat => k (n1 + n0)))).
-      reflexivity.
-  - right.
-    unfold specification_of_evaluate in S_evaluate.
-    destruct S_evaluate as [_ [[S_Plus_s1_n2 [_ _]] _]].
-    exists s1.
-    Check (S_Plus_s1_n2 ae1 ae2 s1 IHae1).
-    split.
-    + exact (S_Plus_s1_n2 ae1 ae2 s1 IHae1).
-    + intro k.
-      rewrite -> fold_unfold_evaluate_cps_Plus.
-      rewrite -> (IHae1_cps (fun n1 : nat => evaluate_cps ae2 (fun n2 : nat => k (n1 + n2)))).
-      reflexivity.
-  - case (n1 <? n2) eqn:H_n1_n2.
-    + right.
-      unfold specification_of_evaluate in S_evaluate.
-      destruct S_evaluate as [_ [_ [_ [_ [S_Minus_n1_n2_msg _]]]]].
-      Check (S_Minus_n1_n2_msg ae1 ae2 n1 n2 IHae1 IHae2 H_n1_n2).
-      exists (String.append "numerical underflow: -" (string_of_nat (n2 - n1))).
-      split.
-      * exact (S_Minus_n1_n2_msg ae1 ae2 n1 n2 IHae1 IHae2 H_n1_n2).
-      * intro k.
-        rewrite -> fold_unfold_evaluate_cps_Minus.
-        rewrite -> (IHae1_cps (fun n0 : nat =>
-                                 evaluate_cps ae2
-                                              (fun n3 : nat =>
-                                                 if n0 <? n3
-                                                 then
-                                                   Expressible_msg
-                                                     ("numerical underflow: -" ++ string_of_nat (n3 - n0))
-                                                 else k (n0 - n3)))).
-        rewrite -> (IHae2_cps (fun n3 : nat =>
-                                 if n1 <? n3
-                                 then
-                                   Expressible_msg ("numerical underflow: -" ++ string_of_nat (n3 - n1))
-                                 else k (n1 - n3))).
-        rewrite -> H_n1_n2.
-        reflexivity.
-    + left.
-      unfold specification_of_evaluate in S_evaluate.
-      destruct S_evaluate as [_ [_ [_ [_ [_ S_Minus_n1_n2_nat]]]]].
-      Check (S_Minus_n1_n2_nat ae1 ae2 n1 n2 IHae1 IHae2 H_n1_n2).
-      exists (n1 - n2).
-      split.
-      * exact (S_Minus_n1_n2_nat ae1 ae2 n1 n2 IHae1 IHae2 H_n1_n2).
-      * intro k.
-        rewrite -> fold_unfold_evaluate_cps_Minus.
-        rewrite -> (IHae1_cps (fun n0 : nat =>
-                                 evaluate_cps ae2
-                                              (fun n3 : nat =>
-                                                 if n0 <? n3
-                                                 then
-                                                   Expressible_msg
-                                                     ("numerical underflow: -" ++ string_of_nat (n3 - n0))
-                                                 else k (n0 - n3)))).
-        rewrite -> (IHae2_cps (fun n3 : nat =>
-                                 if n1 <? n3
-                                 then
-                                   Expressible_msg ("numerical underflow: -" ++ string_of_nat (n3 - n1))
-                                 else k (n1 - n3))).
-        rewrite -> H_n1_n2.
-        reflexivity.
-  - right.
-    unfold specification_of_evaluate in S_evaluate.
-    destruct S_evaluate as [_ [_ [_ [S_Minus_n1_s2 _]]]].
-    Check (S_Minus_n1_s2
-             ae1
-             ae2
-             n1
-             s2
-             IHae1
-             IHae2).
-    exists s2.
-    split.
-    + exact (S_Minus_n1_s2
-             ae1
-             ae2
-             n1
-             s2
-             IHae1
-             IHae2).
-    + intro k.
-      rewrite -> fold_unfold_evaluate_cps_Minus.
-      rewrite -> (IHae1_cps (fun n0 : nat =>
-                               evaluate_cps ae2
-                                            (fun n2 : nat =>
-                                               if n0 <? n2
-                                               then
-                                                 Expressible_msg
-                                                   ("numerical underflow: -" ++ string_of_nat (n2 - n0))
-                                               else k (n0 - n2)))).
-      rewrite -> (IHae2_cps (fun n2 : nat =>
-                               if n1 <? n2
-                               then
-                                 Expressible_msg ("numerical underflow: -" ++ string_of_nat (n2 - n1))
-                               else k (n1 - n2))).
-      reflexivity.
-  - unfold specification_of_evaluate in S_evaluate.
-    destruct S_evaluate as [_ [_ [S_Minus_s1_n2 [_ _]]]].
-    Check (S_Minus_s1_n2 ae1 ae2 s1 IHae1).
-    right.
-    exists s1.
-    split.
-    + exact (S_Minus_s1_n2 ae1 ae2 s1 IHae1).
-    + intro k.
-      rewrite -> fold_unfold_evaluate_cps_Minus.
-      rewrite -> (IHae1_cps (fun n1 : nat =>
-                               evaluate_cps ae2
-                                            (fun n0 : nat =>
-                                               if n1 <? n0
-                                               then
-                                                 Expressible_msg
-                                                   ("numerical underflow: -" ++ string_of_nat (n0 - n1))
-                                               else k (n1 - n0)))).
-      reflexivity.
-  - right.
-    unfold specification_of_evaluate in S_evaluate.
-    destruct S_evaluate as [_ [_ [S_Minus_s1_n2 [_ _]]]].
-    exists s1.
-    Check (S_Minus_s1_n2 ae1 ae2 s1 IHae1).
-    split.
-    + exact (S_Minus_s1_n2 ae1 ae2 s1 IHae1).
-    + intro k.
-      rewrite -> fold_unfold_evaluate_cps_Minus.
-      rewrite -> (IHae1_cps (fun n1 : nat =>
-                               evaluate_cps ae2
-                                            (fun n2 : nat =>
-                                               if n1 <? n2
-                                               then
-                                                 Expressible_msg
-                                                   ("numerical underflow: -" ++ string_of_nat (n2 - n1))
-                                               else k (n1 - n2)))).
-      reflexivity.
-Qed.
-
 Fixpoint evaluate (ae: arithmetic_expression) : expressible_value :=
   match ae with
   | Literal n =>
@@ -610,45 +323,137 @@ Proof.
 
     Restart.
     unfold specification_of_evaluate.
+    split.
+    intro n.
+    rewrite -> fold_unfold_evaluate_Literal.
+    reflexivity.
     repeat split;
       intros ae1 ae2;
-      (rewrite -> (fold_unfold_evaluate_Literal) ||
-       rewrite -> (fold_unfold_evaluate_Plus) ||
+      (rewrite -> (fold_unfold_evaluate_Plus) ||
        rewrite -> (fold_unfold_evaluate_Minus));
       ((intros s1 H_evaluate_ae1; rewrite -> H_evaluate_ae1; reflexivity) ||
        (intros n1 n2 H_evaluate_ae1 H_evaluate_ae2; rewrite -> H_evaluate_ae1; rewrite -> H_evaluate_ae2;  reflexivity) ||
        (intros n1 n2 H_evaluate_ae1 H_evaluate_ae2 H_lesser_than; rewrite -> H_evaluate_ae1; rewrite -> H_evaluate_ae2; rewrite -> H_lesser_than; reflexivity)).
-    Qed.
+Qed.
 
+
+Theorem there_is_at_most_one_evaluate_function :
+  forall eval1 eval2 : arithmetic_expression -> expressible_value,
+    specification_of_evaluate eval1 ->
+    specification_of_evaluate eval2 ->
+    forall ae : arithmetic_expression,
+      eval1 ae = eval2 ae.
+Proof.
+  intros eval1 eval2 S_eval1 S_eval2 ae.
+  induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2];
+    ((destruct S_eval1 as [S_literal1 _];
+      destruct S_eval2 as [S_literal2 _];
+      rewrite -> (S_literal2 n);
+      exact (S_literal1 n))
+     || (destruct (eval2 ae1) eqn:eval2ae1;
+         destruct (eval2 ae2) eqn:eval2ae2;
+         destruct (eval1 ae1) eqn:eval1ae1;
+         destruct (eval1 ae2) eqn:eval1ae2;
+         try discriminate)).
+  + destruct S_eval1 as [_ [[_ [_ S_plus_n1n2]] _] ].
+    destruct S_eval2 as [_ [[_ [_ S_plus_n1n2']] _] ].
+    Check (S_plus_n1n2 ae1 ae2 n1 n2 eval1ae1 eval1ae2).
+    rewrite -> (S_plus_n1n2 ae1 ae2 n1 n2 eval1ae1 eval1ae2).
+    rewrite -> (S_plus_n1n2' ae1 ae2 n n0 eval2ae1 eval2ae2).
+    injection IHae1 as IHae1.
+    injection IHae2 as IHae2.
+    rewrite -> IHae1.
+    rewrite -> IHae2.
+    reflexivity.
+  + destruct S_eval1 as [_ [[_ [S_plus_n1s2 _]] _] ].
+    destruct S_eval2 as [_ [[_ [S_plus_n1s2' _]] _] ].
+    rewrite -> (S_plus_n1s2 ae1 ae2 n0 s0 eval1ae1 eval1ae2).
+    rewrite -> (S_plus_n1s2' ae1 ae2 n s eval2ae1 eval2ae2).
+    injection IHae1 as IHae1.
+    injection IHae2 as IHae2.
+    rewrite -> IHae2.
+    reflexivity.
+  + destruct S_eval1 as [_ [[S_plus_s1 _] _]].
+    destruct S_eval2 as [_ [[S_plus_s1' _] _]].
+    rewrite -> (S_plus_s1' ae1 ae2 s eval2ae1).
+    rewrite -> (S_plus_s1 ae1 ae2 s0 eval1ae1).
+    exact IHae1.
+  + destruct S_eval1 as [_ [[S_plus_s1 _] _]].
+    destruct S_eval2 as [_ [[S_plus_s1' _] _]].
+    rewrite -> (S_plus_s1' ae1 ae2 s eval2ae1).
+    rewrite -> (S_plus_s1 ae1 ae2 s1 eval1ae1).
+    exact IHae1.
+  + case (n1 <? n2) eqn:H_n1_n2;
+      case (n <? n0) eqn:H_n_n0.
+    ++  destruct S_eval1 as [_ [_ [_ [_ [S_minus_n1n2err _]]]]].
+        destruct S_eval2 as  [_ [_ [_ [_ [S_minus_n1n2err' _]]]]].
+        rewrite -> (S_minus_n1n2err' ae1 ae2 n n0 eval2ae1 eval2ae2 H_n_n0).
+        rewrite -> (S_minus_n1n2err ae1 ae2 n1 n2 eval1ae1 eval1ae2 H_n1_n2).
+        injection IHae1 as IHae1.
+        injection IHae2 as IHae2.
+        rewrite -> IHae1.
+        rewrite -> IHae2.
+        reflexivity.
+    ++ injection IHae1 as IHae1.
+       injection IHae2 as IHae2.
+       rewrite -> IHae1 in H_n1_n2.
+       rewrite -> IHae2 in H_n1_n2.
+       rewrite -> H_n_n0 in H_n1_n2.
+       discriminate H_n1_n2.
+    ++ injection IHae1 as IHae1.
+       injection IHae2 as IHae2.
+       rewrite -> IHae1 in H_n1_n2.
+       rewrite -> IHae2 in H_n1_n2.
+       rewrite -> H_n_n0 in H_n1_n2.
+       discriminate H_n1_n2.
+    ++ destruct S_eval1 as [_ [_ [_ [_ [_ S_minus_n1n2]]]]].
+       destruct S_eval2 as  [_ [_ [_ [_ [_ S_minus_n1n2']]]]].
+       rewrite -> (S_minus_n1n2' ae1 ae2 n n0 eval2ae1 eval2ae2 H_n_n0).
+       rewrite -> (S_minus_n1n2 ae1 ae2 n1 n2 eval1ae1 eval1ae2 H_n1_n2).
+       injection IHae1 as IHae1.
+       injection IHae2 as IHae2.
+       rewrite -> IHae1.
+       rewrite -> IHae2.
+       reflexivity.
+  + destruct S_eval1 as [_ [_ [_ [S_minus_n1s2 _]]]].
+    destruct S_eval2 as [_ [_ [_ [S_minus_n1s2' _]]]].
+    rewrite -> (S_minus_n1s2' ae1 ae2 n s eval2ae1 eval2ae2).
+    rewrite -> (S_minus_n1s2 ae1 ae2 n0 s0 eval1ae1 eval1ae2).
+    exact IHae2.
+  + destruct S_eval1 as [_ [_ [S_minus_s1 _]]].
+    destruct S_eval2 as [_ [_ [S_minus_s1' _]]].
+    rewrite -> (S_minus_s1 ae1 ae2 s0 eval1ae1).
+    rewrite -> (S_minus_s1' ae1 ae2 s eval2ae1).
+    injection IHae1 as IHae1.
+    rewrite -> IHae1.
+    reflexivity.
+  + destruct S_eval1 as [_ [_ [S_minus_s1 _]]].
+    destruct S_eval2 as [_ [_ [S_minus_s1' _]]].
+    rewrite -> (S_minus_s1 ae1 ae2 s1 eval1ae1).
+    rewrite -> (S_minus_s1' ae1 ae2 s eval2ae1).
+    injection IHae1 as IHae1.
+    rewrite -> IHae1.
+    reflexivity.
+Qed.
+       
 Definition interpret (sp : source_program) : expressible_value :=
   match sp with
-  | Source_program ae =>
-    evaluate_cps ae (fun (n : nat) => Expressible_nat n)
+  | Source_program ae => evaluate ae
   end.
 
 Theorem interpret_satisfies_the_specification_of_interpret :
   specification_of_interpret interpret.
 Proof.
-  unfold specification_of_interpret.
-  intros evaluate S_evaluate ae.
-  Check (about_evaluate_cps
+  unfold specification_of_interpret, interpret.
+  intros eval s_eval ae.
+  exact (there_is_at_most_one_evaluate_function
            evaluate
-           S_evaluate
+           eval
+           evaluate_satisfies_the_specification_of_evaluate
+           s_eval
            ae).
-  destruct (about_evaluate_cps
-              evaluate
-              S_evaluate
-              ae) as [[n [H_eval H_eval_cps]] | [s [H_eval H_eval_cps]]].
-  - unfold interpret.
-    Check (H_eval_cps (fun n => Expressible_nat n)).
-    rewrite -> (H_eval_cps (fun n => Expressible_nat n)).
-    Check (eq_sym H_eval).
-    exact (eq_sym H_eval).
-  - unfold interpret.
-    Check (H_eval_cps (fun n => Expressible_nat n)).
-    rewrite -> (H_eval_cps (fun n => Expressible_nat n)).
-    exact (eq_sym H_eval).
 Qed.
+
 
 (* ********** *)
 
