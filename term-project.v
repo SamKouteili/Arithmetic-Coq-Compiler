@@ -620,6 +620,38 @@ Proof.
        (intros n1 n2 H_evaluate_ae1 H_evaluate_ae2 H_lesser_than; rewrite -> H_evaluate_ae1; rewrite -> H_evaluate_ae2; rewrite -> H_lesser_than; reflexivity)).
     Qed.
 
+Theorem there_is_at_most_one_evaluate_function :
+  forall eval1 eval2 : arithmetic_expression -> expressible_value,
+    specification_of_evaluate eval1 ->
+    specification_of_evaluate eval2 ->
+    forall ae : arithmetic_expression,
+      eval1 ae = eval2 ae.
+Proof.
+  intros eval1 eval2 S_eval1 S_eval2 ae.
+  induction ae as [n |
+                  ae1 [n1 [s1 IHae1] | [n1 [n2 IHae1_cps]]] |
+                   [[n1 [IHae1 IHae1_cps]] | [s1 [IHae1 IHae1_cps]]] [[n2 [IHae2 IHae2_cps]] | [s2 [IHae2 IHae2_cps]]]].
+  - destruct S_eval1 as [S_literal1 _].
+    destruct S_eval2 as [S_literal2 _].
+    rewrite -> (S_literal2 n).
+    exact (S_literal1 n).
+ - destruct S_eval1 as [_ [S_plus1 _] ].
+   destruct (eval1 ae1) eqn: H.
+   -- 
+
+
+[n |
+                   ae1 [[n1 [IHae1 IHae1_cps]] | [s1 [IHae1 IHae1_cps]]] ae2 [[n2 [IHae2 IHae2_cps]] | [s2 [IHae2 IHae2_cps]]] |
+                   ae1 [[n1 [IHae1 IHae1_cps]] | [s1 [IHae1 IHae1_cps]]] ae2 [[n2 [IHae2 IHae2_cps]] | [s2 [IHae2 IHae2_cps]]]].
+  + destruct S_eval1 as [S_literal1 _].
+    destruct S_eval2 as [S_literal2 _].
+    rewrite -> (S_literal2 n).
+    exact (S_literal1 n).
+  + destruct S_eval1 as [_ [S_plus1 _] ].
+    case (eval2 (Plus ae1 ae2)).
+    ++
+Admitted.
+
 Definition interpret (sp : source_program) : expressible_value :=
   match sp with
   | Source_program ae =>
