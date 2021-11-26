@@ -584,15 +584,15 @@ Proof.
   intros itpt1 itpt2 spec_i1 spec_i2 sp.
   unfold specification_of_interpret in spec_i1, spec_i2.
   destruct sp as [ae].
-   rewrite -> (spec_i2
+  rewrite -> (spec_i2
+                evaluate
+                evaluate_satisfies_the_specification_of_evaluate
+                ae).
+  exact (spec_i1
            evaluate
            evaluate_satisfies_the_specification_of_evaluate
            ae).
-   exact (spec_i1
-           evaluate
-           evaluate_satisfies_the_specification_of_evaluate
-           ae).
-Qed.
+Qed. 
 
 Definition interpret (sp : source_program) : expressible_value :=
   match sp with
@@ -993,9 +993,14 @@ Proof.
   intros run1 run2 S_run1 S_run2 tp.
   destruct tp as [bcis].
   unfold specification_of_run in S_run1.
-  Check (S_run1 fetch_decode_execute_loop fetch_decode_execute_loop_satisfies_the_specification_of_fetch_decode_execute_loop).
-  destruct (S_run1 fetch_decode_execute_loop fetch_decode_execute_loop_satisfies_the_specification_of_fetch_decode_execute_loop) as [H_run1_OK_nil [H_run1_OK_cons [H_run1_OK_cons2 H_run1_KO]]].
-  destruct (S_run2 fetch_decode_execute_loop fetch_decode_execute_loop_satisfies_the_specification_of_fetch_decode_execute_loop) as [H_run2_OK_nil [H_run2_OK_cons [H_run2_OK_cons2 H_run2_KO]]].
+  Check (S_run1 fetch_decode_execute_loop
+                fetch_decode_execute_loop_satisfies_the_specification_of_fetch_decode_execute_loop).
+  destruct (S_run1 fetch_decode_execute_loop
+                   fetch_decode_execute_loop_satisfies_the_specification_of_fetch_decode_execute_loop)
+    as [H_run1_OK_nil [H_run1_OK_cons [H_run1_OK_cons2 H_run1_KO]]].
+  destruct (S_run2 fetch_decode_execute_loop
+                   fetch_decode_execute_loop_satisfies_the_specification_of_fetch_decode_execute_loop)
+    as [H_run2_OK_nil [H_run2_OK_cons [H_run2_OK_cons2 H_run2_KO]]].
   destruct (fetch_decode_execute_loop bcis nil) as [ds | s] eqn:H_fetch_decode_execute_loop.
   - destruct ds as [ | n [ | n' ds']]. (* looking for subsequent cases of ds; nil or n::ds' *)
     + rewrite -> (H_run2_OK_nil bcis H_fetch_decode_execute_loop).
@@ -1029,10 +1034,18 @@ Definition run (t : target_program) : expressible_value :=
 Theorem run_satisfies_the_specification_of_run :
   specification_of_run run.
 Proof.
-    unfold specification_of_run.
+  unfold specification_of_run.
   intros fetch_decode_execute_loop' S_fetch_decode_execute_loop'.
-  Check (there_is_at_most_one_fetch_decode_execute_loop fetch_decode_execute_loop' fetch_decode_execute_loop S_fetch_decode_execute_loop' fetch_decode_execute_loop_satisfies_the_specification_of_fetch_decode_execute_loop).
-  assert (H_at_most_one_fdel := there_is_at_most_one_fetch_decode_execute_loop fetch_decode_execute_loop' fetch_decode_execute_loop S_fetch_decode_execute_loop' fetch_decode_execute_loop_satisfies_the_specification_of_fetch_decode_execute_loop).
+  Check (there_is_at_most_one_fetch_decode_execute_loop
+           fetch_decode_execute_loop'
+           fetch_decode_execute_loop
+           S_fetch_decode_execute_loop'
+           fetch_decode_execute_loop_satisfies_the_specification_of_fetch_decode_execute_loop).
+  assert (H_at_most_one_fdel := there_is_at_most_one_fetch_decode_execute_loop
+                                  fetch_decode_execute_loop'
+                                  fetch_decode_execute_loop
+                                  S_fetch_decode_execute_loop'
+                                  fetch_decode_execute_loop_satisfies_the_specification_of_fetch_decode_execute_loop).
   split.
   - intros bcis S_fetch_decode_execute_loop_nil'; unfold run.
     rewrite <- (H_at_most_one_fdel bcis nil).
@@ -1097,6 +1110,26 @@ Proposition there_is_at_most_one_compile_aux :
     specification_of_compile_aux compile_aux2 ->
     compile_aux1 ae = compile_aux2 ae.
 Proof.
+  intros compile_aux1 compile_aux2 ae S_compile_aux1 S_compile_aux2.
+  unfold specification_of_compile_aux in S_compile_aux1.
+  destruct S_compile_aux1 as [S_compile_aux1_Lit [S_compile_aux1_Plus S_compile_aux1_Minus]].
+  destruct S_compile_aux2 as [S_compile_aux2_Lit [S_compile_aux2_Plus S_compile_aux2_Minus]].
+  induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2].
+  - rewrite -> (S_compile_aux2_Lit n).
+    exact (S_compile_aux1_Lit n).
+  - rewrite -> (S_compile_aux2_Plus ae1 ae2).
+    rewrite -> (S_compile_aux1_Plus ae1 ae2).
+    rewrite -> IHae1.
+    rewrite -> IHae2.
+    reflexivity.
+  - rewrite -> (S_compile_aux2_Minus ae1 ae2).
+    rewrite -> (S_compile_aux1_Minus ae1 ae2).
+    rewrite -> IHae1.
+    rewrite -> IHae2.
+    reflexivity.
+
+  Restart.
+
   intros compile_aux1 compile_aux2 ae S_compile_aux1 S_compile_aux2.
   unfold specification_of_compile_aux in S_compile_aux1.
   destruct S_compile_aux1 as [S_compile_aux1_Lit [S_compile_aux1_Plus S_compile_aux1_Minus]].
@@ -1198,8 +1231,16 @@ Proof.
   unfold specification_of_compile.
   intros compile_aux' S_compile_aux' ae.
   unfold compile.
-  Check (there_is_at_most_one_compile_aux compile_aux compile_aux' ae compile_aux_satisfies_specification_of_compile_aux S_compile_aux').
-  rewrite -> (there_is_at_most_one_compile_aux compile_aux compile_aux' ae compile_aux_satisfies_specification_of_compile_aux S_compile_aux').
+  Check (there_is_at_most_one_compile_aux
+           compile_aux
+           compile_aux'
+           ae
+           compile_aux_satisfies_specification_of_compile_aux S_compile_aux').
+  rewrite -> (there_is_at_most_one_compile_aux
+                compile_aux
+                compile_aux'
+                ae
+                compile_aux_satisfies_specification_of_compile_aux S_compile_aux').
   reflexivity.
 Qed.
 
@@ -1256,12 +1297,14 @@ Proof.
   intro ae.
   induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2];
     intro bcis.
-  + repeat rewrite -> fold_unfold_compile_aux'_Literal;
-    rewrite -> fold_unfold_append_cons;
-    rewrite -> fold_unfold_append_nil;
+  - rewrite -> fold_unfold_compile_aux'_Literal.
+    rewrite -> fold_unfold_compile_aux'_Literal.
+    rewrite -> fold_unfold_append_cons.
+    rewrite -> fold_unfold_append_nil.
     reflexivity.
-  + repeat rewrite -> fold_unfold_compile_aux'_Plus.
+  - rewrite -> fold_unfold_compile_aux'_Plus.
     rewrite -> (IHae2 (ADD :: bcis)).
+    rewrite -> fold_unfold_compile_aux'_Plus.
     rewrite -> (IHae2 (ADD :: nil)).
     rewrite -> (IHae1 (compile_aux' nil ae2 ++ ADD :: bcis)).
     rewrite -> (IHae1 (compile_aux' nil ae2 ++ ADD :: nil)).
@@ -1276,8 +1319,9 @@ Proof.
     rewrite -> fold_unfold_append_nil.
     rewrite -> app_assoc.
     reflexivity.
-  + repeat rewrite -> fold_unfold_compile_aux'_Minus.
+  - rewrite -> fold_unfold_compile_aux'_Minus.
     rewrite -> (IHae2 (SUB :: bcis)).
+    rewrite -> fold_unfold_compile_aux'_Minus.
     rewrite -> (IHae2 (SUB :: nil)).
     rewrite -> (IHae1 (compile_aux' nil ae2 ++ SUB :: bcis)).
     rewrite -> (IHae1 (compile_aux' nil ae2 ++ SUB :: nil)).
@@ -1322,10 +1366,32 @@ Proof.
   unfold specification_of_compile.
   intros compile_aux'' S_compile_aux'' ae.
   unfold compile'.
-  rewrite -> (there_is_at_most_one_compile_aux (compile_aux' nil) compile_aux'' ae compile_aux'_satisfies_specification_of_compile_aux S_compile_aux'').
+  rewrite -> (there_is_at_most_one_compile_aux
+                (compile_aux' nil)
+                compile_aux''
+                ae
+                compile_aux'_satisfies_specification_of_compile_aux S_compile_aux'').
   reflexivity.
 Qed.
 
+Corollary compile_and_compile'_are_equivalent :
+  forall sp : source_program,
+    compile sp = compile' sp.
+Proof.
+  intro sp.
+  Check (there_is_at_most_one_compile
+           compile
+           compile'
+           sp
+           compile_satisfies_specification_of_compile
+           compile'_satisfies_specification_of_compile).
+  exact (there_is_at_most_one_compile
+           compile
+           compile'
+           sp
+           compile_satisfies_specification_of_compile
+           compile'_satisfies_specification_of_compile).
+Qed.
 
 (* ********** *)
 
@@ -1336,6 +1402,7 @@ Qed.
  *)
 
 (* this proof cannot be induction because evaluate can only either return a natural number or a sting of numerical underflow *)
+
 
 
 (* ********** *)
