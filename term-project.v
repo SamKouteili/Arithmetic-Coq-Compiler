@@ -1508,10 +1508,10 @@ Proof.
               rewrite -> fold_unfold_fetch_decode_execute_loop_cons.
               unfold decode_execute.
               rewrite -> n1_n2.
-              admit.
-              (* injection H_eval_s as H_eval_s.
-                 rewrite -> H_eval_s.
-                 reflexivity. *) 
+              remember "numerical underflow: -"%string as msg eqn:H_msg.
+              injection H_eval_s as H_eval_s.
+              rewrite -> H_eval_s.
+              reflexivity.
            ++ discriminate.
         -- rewrite -> fold_unfold_compile_aux_Minus.
            rewrite -> execution_and_concatenation_commute.
@@ -1528,10 +1528,7 @@ Proof.
         injection H_eval_s as H_eval_s.
         rewrite -> H_eval_s.
         reflexivity.
-           
-    Admitted.
-  
-
+Qed.
 
 Theorem the_commutative_diagram :
     forall sp : source_program,
@@ -1541,7 +1538,7 @@ Theorem the_commutative_diagram :
    destruct sp as [ae].
    unfold interpret, compile, run.
    destruct (about_evaluate_outputs ae nil) as [H_nat H_s].
-   case (evaluate ae) as [n | s] eqn:evalae.
+   case (evaluate ae) as [n | s].
    + rewrite -> (H_nat n eq_refl).
      reflexivity.
    + rewrite -> (H_s s eq_refl).
