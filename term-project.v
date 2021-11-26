@@ -229,6 +229,87 @@ Theorem there_is_at_most_one_evaluate_function :
       eval1 ae = eval2 ae.
 Proof.
   intros eval1 eval2 S_eval1 S_eval2 ae.
+  induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2].
+  destruct S_eval1 as [S_literal1 _].
+  destruct S_eval2 as [S_literal2 _].
+  rewrite -> (S_literal2 n).
+  exact (S_literal1 n).
+  destruct (eval2 ae1) eqn:eval2ae1.
+  destruct (eval2 ae2) eqn:eval2ae2.
+  destruct (eval1 ae1) eqn:eval1ae1.
+  destruct (eval1 ae2) eqn:eval1ae2.
+  + destruct S_eval1 as [_ [[_ [_ S_plus_n1n2]] _] ].
+    destruct S_eval2 as [_ [[_ [_ S_plus_n1n2']] _] ].
+    Check (S_plus_n1n2 ae1 ae2 n1 n2 eval1ae1 eval1ae2).
+    rewrite -> (S_plus_n1n2 ae1 ae2 n1 n2 eval1ae1 eval1ae2).
+    rewrite -> (S_plus_n1n2' ae1 ae2 n n0 eval2ae1 eval2ae2).
+    injection IHae1 as IHae1.
+    injection IHae2 as IHae2.
+    rewrite -> IHae1.
+    rewrite -> IHae2.
+    reflexivity.
+  + discriminate IHae2.
+  + discriminate IHae1.
+  + destruct S_eval1 as [_ [[_ [S_plus_n1s2 _]] _] ].
+    destruct S_eval2 as [_ [[_ [S_plus_n1s2' _]] _] ].
+    rewrite -> (S_plus_n1s2 ae1 ae2 n s IHae1 IHae2).
+    rewrite -> (S_plus_n1s2' ae1 ae2 n s eval2ae1 eval2ae2).
+    reflexivity.
+  + destruct S_eval1 as [_ [[S_plus_s1 _] _]].
+    destruct S_eval2 as [_ [[S_plus_s1' _] _]].
+    rewrite -> (S_plus_s1' ae1 ae2 s eval2ae1).
+    exact (S_plus_s1 ae1 ae2 s IHae1).
+  + destruct (eval2 ae1) eqn:eval2ae1.
+    destruct (eval2 ae2) eqn:eval2ae2.
+    destruct (eval1 ae1) eqn:eval1ae1.
+    destruct (eval1 ae2) eqn:eval1ae2.
+    * case (n1 <? n2) eqn:H_n1_n2;
+      case (n <? n0) eqn:H_n_n0;
+      injection IHae1 as IHae1;
+      injection IHae2 as IHae2.
+      - destruct S_eval1 as [_ [_ [_ [_ [S_minus_n1n2err _]]]]].
+        destruct S_eval2 as [_ [_ [_ [_ [S_minus_n1n2err' _]]]]].
+        rewrite -> (S_minus_n1n2err' ae1 ae2 n n0 eval2ae1 eval2ae2 H_n_n0).
+        rewrite -> (S_minus_n1n2err ae1 ae2 n1 n2 eval1ae1 eval1ae2 H_n1_n2).
+        rewrite -> IHae1.
+        rewrite -> IHae2.
+        reflexivity.
+      - rewrite -> IHae1 in H_n1_n2.
+        rewrite -> IHae2 in H_n1_n2.
+        rewrite -> H_n_n0 in H_n1_n2.
+        discriminate H_n1_n2.
+      - rewrite -> IHae1 in H_n1_n2.
+        rewrite -> IHae2 in H_n1_n2.
+        rewrite -> H_n_n0 in H_n1_n2.
+        discriminate H_n1_n2.
+      - destruct S_eval1 as [_ [_ [_ [_ [_ S_minus_n1n2]]]]].
+        destruct S_eval2 as [_ [_ [_ [_ [_ S_minus_n1n2']]]]].
+        rewrite -> (S_minus_n1n2' ae1 ae2 n n0 eval2ae1 eval2ae2 H_n_n0).
+        rewrite -> (S_minus_n1n2 ae1 ae2 n1 n2 eval1ae1 eval1ae2 H_n1_n2).
+        rewrite -> IHae1.
+        rewrite -> IHae2.
+        reflexivity.
+        * discriminate IHae2.
+        * discriminate IHae1.
+        * destruct S_eval1 as [_ [_ [_ [S_minus_n1s2 _]]]].
+          destruct S_eval2 as [_ [_ [_ [S_minus_n1s2' _]]]].
+          rewrite -> (S_minus_n1s2' ae1 ae2 n s eval2ae1 eval2ae2).
+          exact (S_minus_n1s2 ae1 ae2 n s IHae1 IHae2).
+        * destruct (eval1 ae2) eqn:eval1ae2.
+          destruct (eval2 ae2) eqn:eval2ae2.
+          destruct S_eval1 as [_ [_ [S_minus_s1 _]]].
+          destruct S_eval2 as [_ [_ [S_minus_s1' _]]].
+          rewrite -> (S_minus_s1' ae1 ae2 s eval2ae1).
+          exact (S_minus_s1 ae1 ae2 s IHae1).
+          discriminate IHae2.
+          destruct S_eval1 as [_ [_ [S_minus_s1 _]]].
+          destruct S_eval2 as [_ [_ [S_minus_s1' _]]].
+          rewrite -> (S_minus_s1' ae1 ae2 s eval2ae1).
+          exact (S_minus_s1 ae1 ae2 s IHae1).
+
+  Restart.
+  
+  intros eval1 eval2 S_eval1 S_eval2 ae.
   induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2];
     ((destruct S_eval1 as [S_literal1 _];
       destruct S_eval2 as [S_literal2 _];
@@ -386,41 +467,48 @@ Proof.
   unfold specification_of_evaluate; split.
   - exact (fold_unfold_evaluate_Literal).
   - split; split.
-    + intros ae1 ae2 s2 H_ae1. (* case: evaluate ae1 = Expressible_msg s1 *)
+    (* case: evaluate ae1 = Expressible_msg s1 *)
+    + intros ae1 ae2 s2 H_ae1. 
       Check (fold_unfold_evaluate_Plus ae1 ae2).
       rewrite -> (fold_unfold_evaluate_Plus ae1 ae2).
       rewrite -> H_ae1.
       reflexivity.
-    + split. 
-      * intros ae1 ae2 n1 s2 H_ae1 H_ae2. (* case: evaluate ae2 = Expressible_msg s2 *)  
+    + split.
+      (* case: evaluate ae2 = Expressible_msg s2 *)  
+      * intros ae1 ae2 n1 s2 H_ae1 H_ae2. 
         rewrite -> (fold_unfold_evaluate_Plus ae1 ae2).
         rewrite -> H_ae1.
         rewrite -> H_ae2.
         reflexivity.
-      * intros ae1 ae2 n1 n2 H_ae1 H_ae2. (* case: evaluate ae1 = Expressible_nat n1 and evaluate ae2 = Expressible_nat n2 *)
+      (* case: evaluate ae1 = Expressible_nat n1 and evaluate ae2 = Expressible_nat n2 *)
+      * intros ae1 ae2 n1 n2 H_ae1 H_ae2.
         rewrite -> (fold_unfold_evaluate_Plus ae1 ae2).
         rewrite -> H_ae1.
         rewrite -> H_ae2.
         reflexivity.
-    + intros ae1 ae2 s2 H_ae1. (* case: evaluate ae1 = Expressible_msg s1 *)
+    (* case: evaluate ae1 = Expressible_msg s1 *)
+    + intros ae1 ae2 s2 H_ae1. 
       Check (fold_unfold_evaluate_Minus ae1 ae2).
       rewrite -> (fold_unfold_evaluate_Minus ae1 ae2).
       rewrite -> H_ae1.
       reflexivity.
     + split.
-      * intros ae1 ae2 n1 s2 H_ae1 H_ae2. (* case: evaluate ae2 = Expressible_msg s2 *)  
+      (* case: evaluate ae2 = Expressible_msg s2 *) 
+      * intros ae1 ae2 n1 s2 H_ae1 H_ae2.  
         rewrite -> (fold_unfold_evaluate_Minus ae1 ae2).
         rewrite -> H_ae1.
         rewrite -> H_ae2.
         reflexivity.
       * split.
-        -- intros ae1 ae2 n1 n2 H_ae1 H_ae2 H_n1_n2. (* case: evaluate ae1 = Expressible_nat n1 and evaluate ae2 = Expressible_nat n2 and n1 ?< n2 = true*)
+        (* case: evaluate ae1 = Expressible_nat n1 and evaluate ae2 = Expressible_nat n2 and n1 ?< n2 = true*)
+        -- intros ae1 ae2 n1 n2 H_ae1 H_ae2 H_n1_n2. 
            rewrite -> (fold_unfold_evaluate_Minus ae1 ae2).
            rewrite -> H_ae1.
            rewrite -> H_ae2.
            rewrite -> H_n1_n2.
            reflexivity.
-        -- intros ae1 ae2 n1 n2 H_ae1 H_ae2 H_n1_n2. (* case: evaluate ae1 = Expressible_nat n1 and evaluate ae2 = Expressible_nat n2 and n1?< n2 = false*)
+        (* case: evaluate ae1 = Expressible_nat n1 and evaluate ae2 = Expressible_nat n2 and n1?< n2 = false*)
+        -- intros ae1 ae2 n1 n2 H_ae1 H_ae2 H_n1_n2. 
            rewrite -> (fold_unfold_evaluate_Minus ae1 ae2).
            rewrite -> H_ae1.
            rewrite -> H_ae2.
@@ -431,7 +519,10 @@ Proof.
 
   
   unfold specification_of_evaluate.
-  repeat split; intros ae1 ae2; (rewrite -> (fold_unfold_evaluate_Literal) || rewrite -> (fold_unfold_evaluate_Plus) || rewrite -> (fold_unfold_evaluate_Minus)).
+  repeat split; intros ae1 ae2;
+    (rewrite -> (fold_unfold_evaluate_Literal) ||
+     rewrite -> (fold_unfold_evaluate_Plus) ||
+     rewrite -> (fold_unfold_evaluate_Minus)).
   - intros s1 H_evaluate_ae1.
     rewrite -> H_evaluate_ae1.
     reflexivity.
@@ -472,9 +563,15 @@ Proof.
       intros ae1 ae2;
       (rewrite -> (fold_unfold_evaluate_Plus) ||
        rewrite -> (fold_unfold_evaluate_Minus));
-      ((intros s1 H_evaluate_ae1; rewrite -> H_evaluate_ae1; reflexivity) ||
-       (intros n1 n2 H_evaluate_ae1 H_evaluate_ae2; rewrite -> H_evaluate_ae1; rewrite -> H_evaluate_ae2;  reflexivity) ||
-       (intros n1 n2 H_evaluate_ae1 H_evaluate_ae2 H_lesser_than; rewrite -> H_evaluate_ae1; rewrite -> H_evaluate_ae2; rewrite -> H_lesser_than; reflexivity)).
+      ((intros s1 H_evaluate_ae1;
+        rewrite -> H_evaluate_ae1; reflexivity) ||
+       (intros n1 n2 H_evaluate_ae1 H_evaluate_ae2;
+        rewrite -> H_evaluate_ae1;
+        rewrite -> H_evaluate_ae2;  reflexivity) ||
+       (intros n1 n2 H_evaluate_ae1 H_evaluate_ae2 H_lesser_than;
+        rewrite -> H_evaluate_ae1;
+        rewrite -> H_evaluate_ae2;
+        rewrite -> H_lesser_than; reflexivity)).
 Qed.
 
 Theorem there_is_at_most_one_interpret_function :
@@ -496,7 +593,6 @@ Proof.
            evaluate_satisfies_the_specification_of_evaluate
            ae).
 Qed.
- 
 
 Definition interpret (sp : source_program) : expressible_value :=
   match sp with
@@ -716,9 +812,8 @@ Definition specification_of_fetch_decode_execute_loop (fetch_decode_execute_loop
    c. verify that your function satisfies the specification.
 *)
 
-
 Theorem there_is_at_most_one_fetch_decode_execute_loop :
-  forall (fetch_decode_execute_loop_1 fetch_decode_execute_loop_2 :list byte_code_instruction -> data_stack -> result_of_decoding_and_execution),
+  forall (fetch_decode_execute_loop_1 fetch_decode_execute_loop_2 : list byte_code_instruction -> data_stack -> result_of_decoding_and_execution),
     specification_of_fetch_decode_execute_loop fetch_decode_execute_loop_1 ->
     specification_of_fetch_decode_execute_loop fetch_decode_execute_loop_2 ->
     forall (bcis : list  byte_code_instruction)
@@ -769,10 +864,11 @@ Lemma fold_unfold_fetch_decode_execute_loop_cons :
   forall (bci : byte_code_instruction)
          (bcis' : list byte_code_instruction)
          (ds : data_stack),
-    fetch_decode_execute_loop (bci :: bcis') ds = match decode_execute bci ds with
-                                                  | OK ds' => fetch_decode_execute_loop bcis' ds'
-                                                  | KO s => KO s
-                                                  end.
+    fetch_decode_execute_loop (bci :: bcis') ds =
+    match decode_execute bci ds with
+    | OK ds' => fetch_decode_execute_loop bcis' ds'
+    | KO s => KO s
+    end.
 Proof.
   fold_unfold_tactic fetch_decode_execute_loop.
 Qed.
@@ -814,7 +910,7 @@ Qed.
    gives the same result as
    (1) executing bcis1 with ds, and then
    (2) executing bcis2 with the resulting data stack, if there exists one.
-*)
+ *)
 
 Lemma fold_unfold_append_nil :
   forall bcis2 : list byte_code_instruction,
@@ -1233,229 +1329,14 @@ Qed.
 
 (* ********** *)
 
+
 (* Task 9 (the capstone):
    Prove that interpreting an arithmetic expression gives the same result
    as first compiling it and then executing the compiled program.
  *)
-Lemma about_evaluate : (* might be unnecessary MIGHT DELETE LATER *)
-    forall ae : arithmetic_expression,
-      (exists n : nat, evaluate ae = Expressible_nat n)
-      \/
-      (exists s : string, evaluate ae = Expressible_msg s).
-Proof.
-  intro ae.
-  induction ae as [n |
-                   ae1 [[n1 IHae1] | [s1 IHae1]] ae2 [[n2 IHae2] | [s2 IHae2]] |
-                   ae1 [[n1 IHae1] | [s1 IHae1]] ae2 [[n2 IHae2] | [s2 IHae2]]].
-  left.
-  - exists n.
-    exact (fold_unfold_evaluate_Literal n).
-  - left.
-    exists (n1 + n2).
-    rewrite -> fold_unfold_evaluate_Plus.
-    rewrite -> IHae1.
-    rewrite -> IHae2.
-    reflexivity.
-  - right.
-    exists s2.
-    rewrite -> fold_unfold_evaluate_Plus.
-    rewrite -> IHae1.
-    rewrite -> IHae2.
-    reflexivity.
-  - right.
-    exists s1.
-    rewrite -> fold_unfold_evaluate_Plus.
-    rewrite -> IHae1.
-    reflexivity.
-  - right.
-    exists s1.
-    rewrite -> fold_unfold_evaluate_Plus.
-    rewrite -> IHae1.
-    reflexivity.
-  - case (n1 <? n2) eqn:H_n1_n2.
-    + right.
-      exists (String.append "numerical underflow: -" (string_of_nat (n2 - n1))).
-      rewrite -> fold_unfold_evaluate_Minus.
-      rewrite -> IHae1.
-      rewrite -> IHae2.
-      rewrite -> H_n1_n2.
-      reflexivity.
-    + left.
-      exists (n1 - n2).
-      rewrite -> fold_unfold_evaluate_Minus.
-      rewrite -> IHae1.
-      rewrite -> IHae2.
-      rewrite -> H_n1_n2.
-      reflexivity.
-  - right.
-    exists s2.
-    rewrite -> fold_unfold_evaluate_Minus.
-    rewrite -> IHae1.
-    rewrite -> IHae2.
-    reflexivity.
-  - right.
-    exists s1.
-    rewrite -> fold_unfold_evaluate_Minus.
-    rewrite -> IHae1.
-    reflexivity.
-  - right.
-    exists s1.
-    rewrite -> fold_unfold_evaluate_Minus.
-    rewrite -> IHae1.
-    reflexivity.
 
-  Restart. (* previously was an overkill *)
+(* this proof cannot be induction because evaluate can only either return a natural number or a sting of numerical underflow *)
 
-  intro ae.
-  case (evaluate ae) as [n | s].
-  - left.
-    exists n.
-    reflexivity.
-  - right.
-    exists s.
-    reflexivity.  
-Qed.
-
-Theorem interpret_and_compile_gives_same_result : (* NOT DONE *)
-  forall (sp : source_program),
-    interpret sp = run (compile sp).
-Proof.
-  destruct sp as [ae].
-  unfold interpret, compile.
-  induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2].
-  - unfold run.
-    rewrite -> (fold_unfold_evaluate_Literal n).
-    rewrite -> (fold_unfold_compile_aux_Literal n).
-    rewrite -> (fold_unfold_fetch_decode_execute_loop_cons (PUSH n) nil nil).
-    unfold decode_execute.
-    rewrite -> (fold_unfold_fetch_decode_execute_loop_nil (n :: nil)).
-    reflexivity.
-  - rewrite -> (fold_unfold_evaluate_Plus ae1 ae2).
-    Check (about_evaluate ae1).
-    destruct (about_evaluate ae1) as [[n1 H_eval1] | [s1 H_eval1]].
-    destruct (about_evaluate ae2) as [[n2 H_eval2] | [s2 H_eval2]].
-    rewrite -> H_eval1.
-    rewrite -> H_eval2.
-    rewrite -> fold_unfold_compile_aux_Plus.
-    unfold run.
-    destruct ae1, ae2.
-    rewrite -> execution_and_concatenation_commute.    
-    rewrite -> (fold_unfold_compile_aux_Literal n).
-    rewrite -> fold_unfold_fetch_decode_execute_loop_cons.
-    unfold decode_execute.
-    
-    rewrite -> fold_unfold_fetch_decode_execute_loop_nil.
-    rewrite -> fold_unfold_compile_aux_Literal.
-    rewrite -> execution_and_concatenation_commute. 
-    rewrite -> fold_unfold_fetch_decode_execute_loop_cons.
-    unfold decode_execute.
-    rewrite -> fold_unfold_fetch_decode_execute_loop_nil.
-    rewrite -> fold_unfold_fetch_decode_execute_loop_cons.
-    unfold decode_execute.
-
-    rewrite -> fold_unfold_fetch_decode_execute_loop_nil.
-
-    Restart.
-    
-  destruct sp as [ae].
-  unfold interpret, compile.
-  induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2].
-  - unfold run.
-    rewrite -> (fold_unfold_evaluate_Literal n).
-    rewrite -> (fold_unfold_compile_aux_Literal n).
-    rewrite -> (fold_unfold_fetch_decode_execute_loop_cons (PUSH n) nil nil).
-    unfold decode_execute.
-    rewrite -> (fold_unfold_fetch_decode_execute_loop_nil (n :: nil)).
-    reflexivity.
-  - rewrite -> (fold_unfold_evaluate_Plus ae1 ae2).
-    rewrite -> IHae1.
-    rewrite -> IHae2.    
-    unfold run.    
-    destruct ae1 as [n1 | ae1' ae1'' | ae1' ae1'']eqn:H_ae1.
-    destruct ae2 as [n2 | ae2' ae2'' | ae2' ae2'']eqn:H_ae2.
-    + repeat rewrite -> fold_unfold_compile_aux_Literal
-      || rewrite -> fold_unfold_fetch_decode_execute_loop_cons
-      || unfold decode_execute
-      || rewrite -> fold_unfold_fetch_decode_execute_loop_nil
-      || rewrite -> fold_unfold_compile_aux_Plus
-      || rewrite -> execution_and_concatenation_commute
-      || reflexivity.
-    + repeat rewrite -> fold_unfold_compile_aux_Literal
-      || rewrite -> fold_unfold_fetch_decode_execute_loop_cons
-      || unfold decode_execute
-      || rewrite -> fold_unfold_fetch_decode_execute_loop_nil
-      || rewrite -> fold_unfold_compile_aux_Plus
-      || rewrite -> execution_and_concatenation_commute
-      || reflexivity.
-      destruct ae2'.
-      destruct ae2''.
-      * repeat rewrite -> fold_unfold_compile_aux_Literal
-        || rewrite -> fold_unfold_fetch_decode_execute_loop_cons
-        || unfold decode_execute
-        || rewrite -> fold_unfold_fetch_decode_execute_loop_nil
-        || rewrite -> fold_unfold_compile_aux_Plus
-        || rewrite -> execution_and_concatenation_commute
-        || reflexivity.
-      * repeat rewrite -> fold_unfold_compile_aux_Literal
-        || rewrite -> fold_unfold_fetch_decode_execute_loop_cons
-        || unfold decode_execute
-        || rewrite -> fold_unfold_fetch_decode_execute_loop_nil
-        || rewrite -> fold_unfold_compile_aux_Plus
-        || rewrite -> execution_and_concatenation_commute
-        || reflexivity.
-
-  Restart.
-
-  destruct sp as [ae].
-  unfold interpret, compile, run.
-  induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2].
-  - rewrite -> (fold_unfold_evaluate_Literal n).
-    rewrite -> (fold_unfold_compile_aux_Literal n).
-    rewrite -> (fold_unfold_fetch_decode_execute_loop_cons (PUSH n) nil nil).
-    unfold decode_execute.
-    rewrite -> (fold_unfold_fetch_decode_execute_loop_nil (n :: nil)).
-    reflexivity.
-  - rewrite -> fold_unfold_evaluate_Plus.
-    rewrite -> IHae1.
-    rewrite -> IHae2.
-    destruct (compile_aux ae1) as [ | ae1' ae1'']eqn:H_ae1.
-    destruct (compile_aux ae2) as [ | ae2' ae2'']eqn:H_ae2.
-    + repeat rewrite -> fold_unfold_compile_aux_Literal
-      || rewrite -> fold_unfold_fetch_decode_execute_loop_cons
-      || unfold decode_execute
-      || rewrite -> fold_unfold_fetch_decode_execute_loop_nil
-      || rewrite -> fold_unfold_compile_aux_Plus
-      || rewrite -> execution_and_concatenation_commute
-      || reflexivity.
-      rewrite -> H_ae1.
-      rewrite -> fold_unfold_fetch_decode_execute_loop_nil.
-      rewrite -> H_ae2.
-      rewrite -> execution_and_concatenation_commute.
-      rewrite -> fold_unfold_fetch_decode_execute_loop_nil.
-      rewrite -> fold_unfold_fetch_decode_execute_loop_cons.
-      unfold decode_execute.
-      (* STUCK HERE *)    
-Admitted.
-(*
-Lemma about_fetch_decode_execute_loop' :
-  forall bcis : list byte_code_instruction,    
-    fetch_decode_execute_loop bcis nil = OK nil
-    \/
-    (exists n : nat, fetch_decode_execute_loop bcis nil = OK (n :: nil))
-    \/
-    (exists (n1 n2 : nat) (bcis' : list nat), fetch_decode_execute_loop bcis nil = OK (n1 :: n2 :: bcis'))
-    \/
-    (exists s : string, fetch_decode_execute_loop bcis nil = KO s).
-Proof.
-  intro bcis.
-  induction bcis as [n | ].
-  left.
-  - exact (fold_unfold_fetch_decode_execute_loop_nil nil).
-  - left.
-    rewrite -> (fold_unfold_fetch_decode_execute_loop_cons a bcis nil).
-    destruct b.
-    unfold decode_execute.
-*)
 
 (* ********** *)
 
@@ -1507,13 +1388,13 @@ Definition verify (p : target_program) : bool :=
    that is accepted by the verifier.
 *)
 
-(*
+
 Theorem the_compiler_emits_well_behaved_code :
   forall ae : arithmetic_expression,
     verify (compile ae) = true.
 Proof.
 Abort.
-*)
+
 
 (* Subsidiary question:
    What is the practical consequence of this theorem?
