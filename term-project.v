@@ -1402,8 +1402,78 @@ Qed.
  *)
 
 (* this proof cannot be induction because evaluate can only either return a natural number or a sting of numerical underflow *)
+Lemma about_evaluate :
+  forall ae : arithmetic_expression,
+    (exists n : nat, evaluate ae = Expressible_nat n)
+    \/
+    (exists s : string, evaluate ae = Expressible_msg s).
+Proof.
+  intro ae.
+  case (evaluate ae) as [n | s].
+  - left.
+    exists n.
+    reflexivity.
+  - right.
+    exists s.
+    reflexivity.
+Qed.
 
+Lemma about_fetch_decode_execute_loop_OK :
+  forall (bcis : list byte_code_instruction)
+         (ds ds1 ds2: data_stack),
+    fetch_decode_execute_loop bcis ds1 = OK ds ->
+      fetch_decode_execute_loop bcis (ds1 ++ ds2) = OK (ds ++ ds2).
+Proof.
+Admitted.
 
+Lemma about_fetch_decode_execute_loop_KO :
+  forall (bcis : list byte_code_instruction)
+         (ds1 ds2: data_stack)
+    (s : string),
+    fetch_decode_execute_loop bcis ds1 = KO s ->
+      fetch_decode_execute_loop bcis (ds1 ++ ds2) = KO s.
+Proof.
+Admitted.
+
+Theorem the_commutative_diagram :
+  forall sp : source_program,
+    interpret sp = run (compile sp).
+Proof.
+  intro sp.
+  destruct sp as [ae].
+  unfold interpret, compile, run.
+  induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2].
+  - rewrite -> fold_unfold_compile_aux_Literal.
+    rewrite -> fold_unfold_fetch_decode_execute_loop_cons.
+    unfold decode_execute.
+    rewrite -> fold_unfold_fetch_decode_execute_loop_nil.
+    exact (fold_unfold_evaluate_Literal n).
+  - rewrite -> fold_unfold_compile_aux_Plus.
+    rewrite -> fold_unfold_evaluate_Plus.
+    destruct (evaluate ae1) eqn:eval1.
+    destruct (evaluate ae2) eqn:eval2.
+    destruct (fetch_decode_execute_loop (compile_aux ae1) nil)
+      as [ d1 | s1 ] eqn:fdel1.
+    destruct (fetch_decode_execute_loop (compile_aux ae2) nil)
+      as [ d2 | s2 ] eqn:fdel2.
+    destruct d1 as [ | e1 d1' ] eqn:d_.
+    destruct d2 as [ | e2 d2' ] eqn:d_'.
+    + discriminate IHae2.
+    + discriminate IHae1.
+    + rewrite -> execution_and_concatenation_commute.
+      rewrite -> fdel1.
+      rewrite -> execution_and_concatenation_commute.
+      Search (nil ++ _ ).
+      rewrite <- (app_nil_l (e1 :: d1')).
+      Check (about_fetch_decode_execute_loop_OK (compile_aux ae2) d2 nil (e1 :: d1') fdel2).
+      rewrite -> (about_fetch_decode_execute_loop_OK (compile_aux ae2) d2 nil (e1 :: d1') fdel2).
+      rewrite -> fold_unfold_fetch_decode_execute_loop_cons.
+      unfold decode_execute.
+      destruct d2 as [ | d2'].
+      destruct d1' as [ | d1''].
+      * discriminate IHae2.
+      * discriminate IHae2.
+Admitted.
 
 (* ********** *)
 
@@ -1453,13 +1523,57 @@ Definition verify (p : target_program) : bool :=
 (* Task 10 (time permitting):
    Prove that the compiler emits code
    that is accepted by the verifier.
-*)
+ *)
 
+Lemma fold_unfold_verify_aux_nil :
+  forall n : nat,
+    verify_aux nil n = Some n.
+Proof.
+  fold_unfold_tactic verify_aux.
+Qed.
 
+Lemma fold_unfold_verify_aux_cons :
+  forall (bci : byte_code_instruction)
+         (bcis' : list byte_code_instruction)
+         (n : nat),
+    verify_aux (bci :: bcis') n =
+    match bci with
+    | PUSH _ =>
+      verify_aux bcis' (S n)
+    | _ =>
+      match n with
+      | S (S n') =>
+        verify_aux bcis' (S n')
+      | _ =>
+        None
+      end
+    end.
+Proof.
+  fold_unfold_tactic verify_aux.
+Qed.
+  
 Theorem the_compiler_emits_well_behaved_code :
   forall ae : arithmetic_expression,
-    verify (compile ae) = true.
+    verify (compile (Source_program ae)) = true.
 Proof.
+  intro ae.
+  unfold verify, compile.
+  induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2].
+  - rewrite -> fold_unfold_compile_aux_Literal.
+    rewrite -> fold_unfold_verify_aux_cons.
+    rewrite -> fold_unfold_verify_aux_nil.
+    reflexivity.
+  - rewrite -> fold_unfold_compile_aux_Plus.
+    destruct (compile_aux ae1) as [ | ae1' ae1''] eqn: H_ae1.
+    destruct (compile_aux ae2) as [ | ae2' ae2''] eqn: H_ae2.
+    + rewrite -> fold_unfold_append_nil.
+      rewrite -> fold_unfold_append_nil.
+      rewrite -> fold_unfold_verify_aux_cons.
+      
+    + 
+    
+    
+    
 Abort.
 
 
