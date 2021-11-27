@@ -1399,7 +1399,8 @@ Qed.
    as first compiling it and then executing the compiled program.
  *)
 
-(* this proof cannot be induction because evaluate can only either return a natural number or a sting of numerical underflow  We had to explicitly define a eureka lemma containing the fact that evaluate ae can indeed
+(* this proof cannot be induction because evaluate can only either return a natural number or a sting of numerical underflow 
+We had to explicitly define a eureka lemma containing the fact that evaluate ae can indeed
 only produce two outputs *)
 
 Lemma about_evaluate_outputs :
@@ -1620,22 +1621,6 @@ Definition verify (p : target_program) : bool :=
    that is accepted by the verifier.
  *)
 
-Theorem append_is_associative :
-  forall (bcis1 bcis2 bcis3 : list byte_code_instruction),
-    bcis1 ++ (bcis2 ++ bcis3) = (bcis1 ++ bcis2) ++ bcis3.
-Proof.
-  intros bcis1 bcis2 bcis3.
-  induction bcis1 as [ | bci1 bcis1' IHbcis1'].
-  - rewrite -> (fold_unfold_append_nil (bcis2 ++ bcis3)).
-    rewrite -> (fold_unfold_append_nil bcis2).
-    reflexivity.
-  - rewrite -> (fold_unfold_append_cons bci1 bcis1' (bcis2 ++ bcis3)).
-    rewrite -> IHbcis1'.
-    rewrite -> (fold_unfold_append_cons bci1 bcis1' bcis2).
-    rewrite -> (fold_unfold_append_cons bci1 (bcis1' ++ bcis2) bcis3).
-    reflexivity.
-Qed.
-
 (*
 Lemma about_verifying :
   forall (ae : arithmetic_expression)
@@ -1733,8 +1718,8 @@ Proof.
     exact (fold_unfold_verify_aux_cons (PUSH k) bcis n).
  - intros bcis n.
    rewrite -> (fold_unfold_compile_aux_Plus ae1 ae2).
-   rewrite <- (append_is_associative (compile_aux ae1) (compile_aux ae2 ++ ADD :: nil) bcis).
-   rewrite <- (append_is_associative (compile_aux ae2) (ADD :: nil) bcis).
+   rewrite <- (app_assoc (compile_aux ae1) (compile_aux ae2 ++ ADD :: nil) bcis).
+   rewrite <- (app_assoc (compile_aux ae2) (ADD :: nil) bcis).
    rewrite -> (fold_unfold_append_cons (ADD) nil bcis).
    rewrite -> (fold_unfold_append_nil bcis).
    rewrite -> (IHae1 (compile_aux ae2 ++ ADD :: bcis) n).
@@ -1743,8 +1728,8 @@ Proof.
    exact (fold_unfold_verify_aux_cons ADD bcis (S (S n))).
  - intros bcis n.
    rewrite -> (fold_unfold_compile_aux_Minus ae1 ae2).
-   rewrite <- (append_is_associative (compile_aux ae1) (compile_aux ae2 ++ SUB :: nil) bcis).
-   rewrite <- (append_is_associative (compile_aux ae2) (SUB :: nil) bcis).
+   rewrite <- (app_assoc (compile_aux ae1) (compile_aux ae2 ++ SUB :: nil) bcis).
+   rewrite <- (app_assoc (compile_aux ae2) (SUB :: nil) bcis).
    rewrite -> (fold_unfold_append_cons SUB nil bcis).
    rewrite -> (fold_unfold_append_nil bcis).
    rewrite -> (IHae1 (compile_aux ae2 ++ SUB :: bcis) n).
