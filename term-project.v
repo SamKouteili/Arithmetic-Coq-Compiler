@@ -767,9 +767,7 @@ Definition decode_execute (bcis : byte_code_instruction) (ds : data_stack) : res
            end
   end.
 
-(* I think repeat split automatically does try reflexivity, but I add
-it there for thoroughness (and cuz Im not sure). Still 2 subgoals with
-or without it *)
+
 Theorem decode_execute_satisfies_the_specification_of_decode_execute :
   specification_of_decode_execute decode_execute.
 Proof.
@@ -1435,6 +1433,149 @@ Qed.
 
 (* this proof cannot be induction because evaluate can only either return a natural number or a sting of numerical underflow *)
 
+(* had to explicitly define a eureka lemma containing the fact that evaluate ae can indeed
+only produce two outputs *) 
+Lemma about_evaluate_outputs :
+  forall (ae : arithmetic_expression)
+         (ds : data_stack),
+    (forall (n : nat),
+        evaluate ae = Expressible_nat n ->
+        fetch_decode_execute_loop (compile_aux ae) ds = OK (n :: ds))
+    /\
+    (forall (s : string),
+        evaluate ae = Expressible_msg s  ->
+        fetch_decode_execute_loop (compile_aux ae) ds = KO s).
+Proof.
+  intro ae.
+  induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2];
+    intro ds.
+  - split.
+    + intros n' H_eval_n.
+      rewrite -> fold_unfold_compile_aux_Literal.
+      rewrite -> fold_unfold_fetch_decode_execute_loop_cons.
+      unfold decode_execute.
+      rewrite -> fold_unfold_fetch_decode_execute_loop_nil.
+      rewrite -> fold_unfold_evaluate_Literal in H_eval_n.
+      injection H_eval_n as H_eval_n.
+      rewrite -> H_eval_n.
+      reflexivity.
+    + intros s H_eval_s.
+      rewrite -> fold_unfold_evaluate_Literal in H_eval_s.
+      discriminate.
+  - split.
+    + intros n' H_eval_n.
+      rewrite -> fold_unfold_evaluate_Plus in H_eval_n.
+      case (evaluate ae1) as [n1 | s1] eqn:eval1.
+      * case (evaluate ae2) as [n2 | s2] eqn:eval2.
+        -- injection H_eval_n as H_eval_n.
+           rewrite -> fold_unfold_compile_aux_Plus.
+           rewrite -> execution_and_concatenation_commute.
+           destruct (IHae1 ds) as [IHae1_nat IHae1_s].
+           rewrite -> (IHae1_nat n1 eq_refl).
+           rewrite -> execution_and_concatenation_commute.
+           destruct (IHae2 (n1 :: ds)) as [IHae2_nat IHae2_s].
+           rewrite -> (IHae2_nat n2 eq_refl).
+           rewrite -> fold_unfold_fetch_decode_execute_loop_cons.
+           unfold decode_execute.
+           rewrite -> fold_unfold_fetch_decode_execute_loop_nil.
+           rewrite -> H_eval_n.
+           reflexivity.
+        -- discriminate.
+      * discriminate.
+    + intros s H_eval_s.
+      rewrite -> fold_unfold_evaluate_Plus in H_eval_s.
+       case (evaluate ae1) as [n1 | s1] eqn:eval1.
+      * case (evaluate ae2) as [n2 | s2] eqn:eval2.
+        -- discriminate.
+        -- rewrite -> fold_unfold_compile_aux_Plus.
+           rewrite -> execution_and_concatenation_commute.
+           destruct (IHae1 ds) as [IHae1_nat IHae1_s].
+           rewrite -> (IHae1_nat n1 eq_refl).
+           rewrite -> execution_and_concatenation_commute.
+           destruct (IHae2 (n1 :: ds)) as [IHae2_nat IHae2_s].
+           rewrite -> (IHae2_s s H_eval_s).
+           reflexivity.
+      * rewrite -> fold_unfold_compile_aux_Plus.
+        rewrite -> execution_and_concatenation_commute.
+        destruct (IHae1 ds) as [IHae1_nat IHae1_s].
+        rewrite -> (IHae1_s s1 eq_refl).
+        injection H_eval_s as H_eval_s.
+        rewrite -> H_eval_s.
+        reflexivity.
+  - split.
+    + intros n H_eval_n.
+      rewrite -> fold_unfold_evaluate_Minus in H_eval_n.
+      case (evaluate ae1) as [n1 | s1] eqn:eval1.
+      * case (evaluate ae2) as [n2 | s2] eqn:eval2.
+        -- case (n1 <? n2) eqn:n1_n2.
+        ++ discriminate.
+        ++ injection H_eval_n as H_eval_n.
+           rewrite -> fold_unfold_compile_aux_Minus.
+           rewrite -> execution_and_concatenation_commute.
+           destruct (IHae1 ds) as [IHae1_nat IHae1_s].
+           rewrite -> (IHae1_nat n1 eq_refl).
+           rewrite -> execution_and_concatenation_commute.
+           destruct (IHae2 (n1 :: ds)) as [IHae2_nat IHae2_s].
+           rewrite -> (IHae2_nat n2 eq_refl).
+           rewrite -> fold_unfold_fetch_decode_execute_loop_cons.
+           unfold decode_execute.
+           rewrite -> n1_n2.
+           rewrite -> fold_unfold_fetch_decode_execute_loop_nil.
+           rewrite -> H_eval_n.
+           reflexivity.
+        -- discriminate.
+      * discriminate.
+    + intros s H_eval_s.
+      rewrite -> fold_unfold_evaluate_Minus in H_eval_s.
+      case (evaluate ae1) as [n1 | s1] eqn:eval1.
+      * case (evaluate ae2) as [n2 | s2] eqn:eval2.
+        -- case (n1 <? n2) eqn:n1_n2.
+           ++ rewrite -> fold_unfold_compile_aux_Minus.
+              rewrite -> execution_and_concatenation_commute.
+              destruct (IHae1 ds) as [IHae1_nat IHae1_s].
+              rewrite -> (IHae1_nat n1 eq_refl).
+              rewrite -> execution_and_concatenation_commute.
+              destruct (IHae2 (n1 :: ds)) as [IHae2_nat IHae2_s].
+              rewrite -> (IHae2_nat n2 eq_refl).
+              rewrite -> fold_unfold_fetch_decode_execute_loop_cons.
+              unfold decode_execute.
+              rewrite -> n1_n2.
+              remember "numerical underflow: -"%string as msg eqn:H_msg.
+              injection H_eval_s as H_eval_s.
+              rewrite -> H_eval_s.
+              reflexivity.
+           ++ discriminate.
+        -- rewrite -> fold_unfold_compile_aux_Minus.
+           rewrite -> execution_and_concatenation_commute.
+           destruct (IHae1 ds) as [IHae1_nat IHae1_s].
+           rewrite -> (IHae1_nat n1 eq_refl).
+           rewrite -> execution_and_concatenation_commute.
+           destruct (IHae2 (n1 :: ds)) as [IHae2_nat IHae2_s].
+           rewrite -> (IHae2_s s H_eval_s).
+           reflexivity.
+      * rewrite -> fold_unfold_compile_aux_Minus.
+        rewrite -> execution_and_concatenation_commute.
+        destruct (IHae1 ds) as [IHae1_nat IHae1_s].
+        rewrite -> (IHae1_s s1 eq_refl).
+        injection H_eval_s as H_eval_s.
+        rewrite -> H_eval_s.
+        reflexivity.
+Qed.
+
+Theorem the_commutative_diagram :
+    forall sp : source_program,
+      interpret sp = run (compile sp).
+ Proof.
+   intro sp.
+   destruct sp as [ae].
+   unfold interpret, compile, run.
+   destruct (about_evaluate_outputs ae nil) as [H_nat H_s].
+   case (evaluate ae) as [n | s].
+   + rewrite -> (H_nat n eq_refl).
+     reflexivity.
+   + rewrite -> (H_s s eq_refl).
+     reflexivity.    
+ Qed.
 
 
 (* ********** *)
