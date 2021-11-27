@@ -594,38 +594,6 @@ Proof.
            ae).
 Qed. 
 
-Theorem there_is_at_most_one_evaluate_function :
-  forall eval1 eval2 : arithmetic_expression -> expressible_value,
-    specification_of_evaluate eval1 ->
-    specification_of_evaluate eval2 ->
-    forall ae : arithmetic_expression,
-      eval1 ae = eval2 ae.
-Proof.
-  intros eval1 eval2 S_eval1 S_eval2 ae.
-  induction ae as [n |
-                  ae1 [n1 [s1 IHae1] | [n1 [n2 IHae1_cps]]] |
-                   [[n1 [IHae1 IHae1_cps]] | [s1 [IHae1 IHae1_cps]]] [[n2 [IHae2 IHae2_cps]] | [s2 [IHae2 IHae2_cps]]]].
-  - destruct S_eval1 as [S_literal1 _].
-    destruct S_eval2 as [S_literal2 _].
-    rewrite -> (S_literal2 n).
-    exact (S_literal1 n).
- - destruct S_eval1 as [_ [S_plus1 _] ].
-   destruct (eval1 ae1) eqn: H.
-   -- 
-
-
-[n |
-                   ae1 [[n1 [IHae1 IHae1_cps]] | [s1 [IHae1 IHae1_cps]]] ae2 [[n2 [IHae2 IHae2_cps]] | [s2 [IHae2 IHae2_cps]]] |
-                   ae1 [[n1 [IHae1 IHae1_cps]] | [s1 [IHae1 IHae1_cps]]] ae2 [[n2 [IHae2 IHae2_cps]] | [s2 [IHae2 IHae2_cps]]]].
-  + destruct S_eval1 as [S_literal1 _].
-    destruct S_eval2 as [S_literal2 _].
-    rewrite -> (S_literal2 n).
-    exact (S_literal1 n).
-  + destruct S_eval1 as [_ [S_plus1 _] ].
-    case (eval2 (Plus ae1 ae2)).
-    ++
-Admitted.
-
 Definition interpret (sp : source_program) : expressible_value :=
   match sp with
   | Source_program ae => evaluate ae
@@ -1434,7 +1402,8 @@ Qed.
 (* this proof cannot be induction because evaluate can only either return a natural number or a sting of numerical underflow *)
 
 (* had to explicitly define a eureka lemma containing the fact that evaluate ae can indeed
-only produce two outputs *) 
+only produce two outputs *)
+
 Lemma about_evaluate_outputs :
   forall (ae : arithmetic_expression)
          (ds : data_stack),
@@ -1607,6 +1576,32 @@ Fixpoint verify_aux (bcis : list byte_code_instruction) (n : nat) : option nat :
       end
   end.
 
+Lemma fold_unfold_verify_aux_nil:
+  forall (n : nat),
+    verify_aux nil n = Some n.
+Proof.
+  fold_unfold_tactic verify_aux.
+Qed.
+
+Lemma fold_unfold_verify_aux_cons:
+  forall (bci : byte_code_instruction)
+         (bcis' : list byte_code_instruction)
+         (n: nat),
+    verify_aux (bci :: bcis') n = match bci with
+                                  | PUSH _ =>
+                                    verify_aux bcis' (S n)
+                                  | _ =>
+                                    match n with
+                                    | S (S n') =>
+                                      verify_aux bcis' (S n')
+                                    | _ =>
+                                      None
+                                    end
+                                  end.
+Proof.
+  fold_unfold_tactic verify_aux.
+Qed.
+
 Definition verify (p : target_program) : bool :=
   match p with
   | Target_program bcis =>
@@ -1628,13 +1623,83 @@ Definition verify (p : target_program) : bool :=
    that is accepted by the verifier.
 *)
 
+Theorem append_is_associative :
+  forall (bcis1 bcis2 bcis3 : list byte_code_instruction),
+    bcis1 ++ (bcis2 ++ bcis3) = (bcis1 ++ bcis2) ++ bcis3.
+Proof.
+  intros bcis1 bcis2 bcis3.
+  induction bcis1 as [ | bci1 bcis1' IHbcis1'].
+  - rewrite -> (fold_unfold_append_nil (bcis2 ++ bcis3)).
+    rewrite -> (fold_unfold_append_nil bcis2).
+    reflexivity.
+  - rewrite -> (fold_unfold_append_cons bci1 bcis1' (bcis2 ++ bcis3)).
+    rewrite -> IHbcis1'.
+    rewrite -> (fold_unfold_append_cons bci1 bcis1' bcis2).
+    rewrite -> (fold_unfold_append_cons bci1 (bcis1' ++ bcis2) bcis3).
+    reflexivity.
+Qed.
+
+Lemma about_verifying :
+  forall (ae : arithmetic_expression)
+         (bcis : list byte_code_instruction)
+         (n : nat),
+    verify_aux ((compile_aux ae) ++ bcis) n =
+    verify_aux bcis (S n).
+Proof.
+  intro ae.
+  induction ae as [k | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2].
+  - intros bcis n.
+    rewrite -> (fold_unfold_compile_aux_Literal k).
+    rewrite -> (fold_unfold_append_cons (PUSH k) nil bcis).
+    rewrite -> (fold_unfold_append_nil bcis).
+    exact (fold_unfold_verify_aux_cons (PUSH k) bcis n).
+ - intros bcis n.
+   rewrite -> (fold_unfold_compile_aux_Plus ae1 ae2).
+   rewrite <- (append_is_associative (compile_aux ae1) (compile_aux ae2 ++ ADD :: nil) bcis).
+   rewrite <- (append_is_associative (compile_aux ae2) (ADD :: nil) bcis).
+   rewrite -> (fold_unfold_append_cons (ADD) nil bcis).
+   rewrite -> (fold_unfold_append_nil bcis).
+   rewrite -> (IHae1 (compile_aux ae2 ++ ADD :: bcis) n).
+   rewrite -> (IHae2 (ADD :: bcis) (S n)).
+   exact (fold_unfold_verify_aux_cons ADD bcis (S (S n))).
+ - intros bcis n.
+   rewrite -> (fold_unfold_compile_aux_Minus ae1 ae2).
+   rewrite <- (append_is_associative (compile_aux ae1) (compile_aux ae2 ++ SUB :: nil) bcis).
+   rewrite <- (append_is_associative (compile_aux ae2) (SUB :: nil) bcis).
+   rewrite -> (fold_unfold_append_cons SUB nil bcis).
+   rewrite -> (fold_unfold_append_nil bcis).
+   rewrite -> (IHae1 (compile_aux ae2 ++ SUB :: bcis) n).
+   rewrite -> (IHae2 (SUB :: bcis) (S n)).
+   exact (fold_unfold_verify_aux_cons SUB bcis (S (S n))).
+Qed.
+
+Lemma compiler_aux_emits_well_behaved_code :
+  forall ae : arithmetic_expression,
+    verify_aux (compile_aux ae) 0 = Some 1.
+Proof.
+  intro ae.
+  destruct ae as [n | ae1 ae2 | ae1 ae2].
+  - reflexivity.
+  - rewrite -> (fold_unfold_compile_aux_Plus ae1 ae2).
+    rewrite -> (about_verifying ae1 (compile_aux ae2 ++ ADD :: nil) 0).
+    rewrite -> (about_verifying ae2 (ADD :: nil) 1).
+    reflexivity.
+  - rewrite -> (fold_unfold_compile_aux_Minus ae1 ae2).
+    rewrite -> (about_verifying ae1 (compile_aux ae2 ++ SUB :: nil) 0).
+    rewrite -> (about_verifying ae2 (SUB :: nil) 1).
+    reflexivity.
+Qed.
 
 Theorem the_compiler_emits_well_behaved_code :
   forall ae : arithmetic_expression,
-    verify (compile ae) = true.
+    verify (compile (Source_program ae)) = true.
 Proof.
-Abort.
-
+  intro ae.
+  unfold verify.
+  unfold compile.
+  rewrite -> (compiler_aux_emits_well_behaved_code ae).
+  reflexivity.
+Qed.
 
 (* Subsidiary question:
    What is the practical consequence of this theorem?
