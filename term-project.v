@@ -1639,6 +1639,88 @@ Proof.
     reflexivity.
 Qed.
 
+(*
+Lemma about_verifying :
+  forall (ae : arithmetic_expression)
+         (bcis : list byte_code_instruction)
+         (n : nat),
+    verify_aux ((compile_aux ae) ++ bcis) n =
+    match verify_aux (compile_aux ae) 0 with
+    | Some 1 => verify_aux bcis (S n)
+    | _ => None
+    end.
+Proof.
+  intros ae.
+  induction ae as [n' | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2].
+  - intros bcis n.
+    rewrite -> fold_unfold_compile_aux_Literal.
+    rewrite -> fold_unfold_append_cons.
+    rewrite -> fold_unfold_verify_aux_cons.
+    rewrite -> fold_unfold_verify_aux_cons.
+    rewrite -> app_nil_l.
+    rewrite -> fold_unfold_verify_aux_nil.
+    reflexivity.
+  - intros bcis n.
+    rewrite -> fold_unfold_compile_aux_Plus.
+    rewrite -> app_assoc_reverse.
+    rewrite -> app_assoc_reverse.
+    rewrite -> fold_unfold_append_cons.
+    rewrite -> fold_unfold_append_nil.
+    Check (IHae1 (compile_aux ae2 ++ ADD :: bcis) n).
+    rewrite -> (IHae1 (compile_aux ae2 ++ ADD :: bcis) n).
+    rewrite -> (IHae1 (compile_aux ae2 ++ ADD :: nil) 0).
+    case (verify_aux (compile_aux ae1) 0) eqn: H_ver_ae1.
+    * case n0 as [ | n0'].
+      -- reflexivity.
+      -- case n0' as [ | n0''].
+         ++ rewrite -> (IHae2 (ADD :: bcis) (S n)).
+            rewrite -> (IHae2 (ADD :: nil) 1).
+            case (verify_aux (compile_aux ae2) 0) eqn: H_ver_ae2.
+            ** case n0 as [ | n0'].
+               --- reflexivity.
+               --- case n0' as [ | n0''].
+                   +++ rewrite -> fold_unfold_verify_aux_cons.
+                       rewrite -> fold_unfold_verify_aux_cons.
+                       rewrite -> fold_unfold_verify_aux_nil.
+                       reflexivity.
+                   +++ reflexivity.
+            ** reflexivity.
+         ++ reflexivity.
+    * reflexivity.
+  - intros bcis n.
+    rewrite -> fold_unfold_compile_aux_Minus.
+    rewrite -> app_assoc_reverse.
+    rewrite -> app_assoc_reverse.
+    rewrite -> fold_unfold_append_cons.
+    rewrite -> fold_unfold_append_nil.
+    Check (IHae1 (compile_aux ae2 ++ SUB :: bcis) n).
+    rewrite -> (IHae1 (compile_aux ae2 ++ SUB :: bcis) n).
+    rewrite -> (IHae1 (compile_aux ae2 ++ SUB :: nil) 0).
+    case (verify_aux (compile_aux ae1) 0) eqn: H_ver_ae1.
+    * case n0 as [ | n0'].
+      -- reflexivity.
+      -- case n0' as [ | n0''].
+         ++ rewrite -> (IHae2 (SUB :: bcis) (S n)).
+            rewrite -> (IHae2 (SUB :: nil) 1).
+            case (verify_aux (compile_aux ae2) 0) eqn: H_ver_ae2.
+            ** case n0 as [ | n0'].
+               --- reflexivity.
+               --- case n0' as [ | n0''].
+                   +++ rewrite -> fold_unfold_verify_aux_cons.
+                       rewrite -> fold_unfold_verify_aux_cons.
+                       rewrite -> fold_unfold_verify_aux_nil.
+                       reflexivity.
+                   +++ reflexivity.
+            ** reflexivity.
+         ++ reflexivity.
+    * reflexivity.
+Qed.
+
+*)
+
+(* but we know that verify_aux (compile_aux ae) 0 always evaluates to Some 1,
+   so we don't need to consider any other cases *)
+
 Lemma about_verifying :
   forall (ae : arithmetic_expression)
          (bcis : list byte_code_instruction)
@@ -1661,6 +1743,7 @@ Proof.
    rewrite -> (fold_unfold_append_nil bcis).
    rewrite -> (IHae1 (compile_aux ae2 ++ ADD :: bcis) n).
    rewrite -> (IHae2 (ADD :: bcis) (S n)).
+
    exact (fold_unfold_verify_aux_cons ADD bcis (S (S n))).
  - intros bcis n.
    rewrite -> (fold_unfold_compile_aux_Minus ae1 ae2).
@@ -1672,6 +1755,8 @@ Proof.
    rewrite -> (IHae2 (SUB :: bcis) (S n)).
    exact (fold_unfold_verify_aux_cons SUB bcis (S (S n))).
 Qed.
+
+(* auxiliary lemma for auxiliary function *)
 
 Lemma compiler_aux_emits_well_behaved_code :
   forall ae : arithmetic_expression,
