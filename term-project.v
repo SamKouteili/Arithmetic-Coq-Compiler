@@ -1399,26 +1399,9 @@ Qed.
    as first compiling it and then executing the compiled program.
  *)
 
-(* this proof cannot be induction because evaluate can only either return a natural number or a sting of numerical underflow *)
-Lemma about_evaluate :
-  forall ae : arithmetic_expression,
-    (exists n : nat, evaluate ae = Expressible_nat n)
-    \/
-    (exists s : string, evaluate ae = Expressible_msg s).
-Proof.
-  intro ae.
-  case (evaluate ae) as [n | s].
-  - left.
-    exists n.
-    reflexivity.
-  - right.
-    exists s.
-    reflexivity.
-Qed.
+(* this proof cannot be induction because evaluate can only either return a natural number or a sting of numerical underflow  We had to explicitly define a eureka lemma containing the fact that evaluate ae can indeed
+only produce two outputs *)
 
-
-(* had to explicitly define a eureka lemma containing the fact that evaluate ae can indeed
-only produce two outputs *) 
 Lemma about_evaluate_outputs :
   forall (ae : arithmetic_expression)
          (ds : data_stack),
@@ -1590,6 +1573,32 @@ Fixpoint verify_aux (bcis : list byte_code_instruction) (n : nat) : option nat :
       end
   end.
 
+Lemma fold_unfold_verify_aux_nil:
+  forall (n : nat),
+    verify_aux nil n = Some n.
+Proof.
+  fold_unfold_tactic verify_aux.
+Qed.
+
+Lemma fold_unfold_verify_aux_cons:
+  forall (bci : byte_code_instruction)
+         (bcis' : list byte_code_instruction)
+         (n: nat),
+    verify_aux (bci :: bcis') n = match bci with
+                                  | PUSH _ =>
+                                    verify_aux bcis' (S n)
+                                  | _ =>
+                                    match n with
+                                    | S (S n') =>
+                                      verify_aux bcis' (S n')
+                                    | _ =>
+                                      None
+                                    end
+                                  end.
+Proof.
+  fold_unfold_tactic verify_aux.
+Qed.
+
 Definition verify (p : target_program) : bool :=
   match p with
   | Target_program bcis =>
@@ -1611,33 +1620,23 @@ Definition verify (p : target_program) : bool :=
    that is accepted by the verifier.
  *)
 
-Lemma fold_unfold_verify_aux_nil :
-  forall n : nat,
-    verify_aux nil n = Some n.
+Theorem append_is_associative :
+  forall (bcis1 bcis2 bcis3 : list byte_code_instruction),
+    bcis1 ++ (bcis2 ++ bcis3) = (bcis1 ++ bcis2) ++ bcis3.
 Proof.
-  fold_unfold_tactic verify_aux.
+  intros bcis1 bcis2 bcis3.
+  induction bcis1 as [ | bci1 bcis1' IHbcis1'].
+  - rewrite -> (fold_unfold_append_nil (bcis2 ++ bcis3)).
+    rewrite -> (fold_unfold_append_nil bcis2).
+    reflexivity.
+  - rewrite -> (fold_unfold_append_cons bci1 bcis1' (bcis2 ++ bcis3)).
+    rewrite -> IHbcis1'.
+    rewrite -> (fold_unfold_append_cons bci1 bcis1' bcis2).
+    rewrite -> (fold_unfold_append_cons bci1 (bcis1' ++ bcis2) bcis3).
+    reflexivity.
 Qed.
 
-Lemma fold_unfold_verify_aux_cons :
-  forall (bci : byte_code_instruction)
-         (bcis' : list byte_code_instruction)
-         (n : nat),
-    verify_aux (bci :: bcis') n =
-    match bci with
-    | PUSH _ =>
-      verify_aux bcis' (S n)
-    | _ =>
-      match n with
-      | S (S n') =>
-        verify_aux bcis' (S n')
-      | _ =>
-        None
-      end
-    end.
-Proof.
-  fold_unfold_tactic verify_aux.
-Qed.
-
+(*
 Lemma about_verifying :
   forall (ae : arithmetic_expression)
          (bcis : list byte_code_instruction)
@@ -1645,7 +1644,7 @@ Lemma about_verifying :
     verify_aux ((compile_aux ae) ++ bcis) n =
     match verify_aux (compile_aux ae) 0 with
     | Some 1 => verify_aux bcis (S n)
-    | _  => None
+    | _ => None
     end.
 Proof.
   intros ae.
@@ -1713,29 +1712,62 @@ Proof.
          ++ reflexivity.
     * reflexivity.
 Qed.
-                         
-Lemma the_compiler_emits_well_behaved_code_for_aux :
+*)
+
+(* but we know that verify_aux (compile_aux ae) 0 always evaluates to Some 1,
+   so we don't need to consider any other cases *)
+
+Lemma about_verifying :
+  forall (ae : arithmetic_expression)
+         (bcis : list byte_code_instruction)
+         (n : nat),
+    verify_aux ((compile_aux ae) ++ bcis) n =
+    verify_aux bcis (S n).
+Proof.
+  intro ae.
+  induction ae as [k | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2].
+  - intros bcis n.
+    rewrite -> (fold_unfold_compile_aux_Literal k).
+    rewrite -> (fold_unfold_append_cons (PUSH k) nil bcis).
+    rewrite -> (fold_unfold_append_nil bcis).
+    exact (fold_unfold_verify_aux_cons (PUSH k) bcis n).
+ - intros bcis n.
+   rewrite -> (fold_unfold_compile_aux_Plus ae1 ae2).
+   rewrite <- (append_is_associative (compile_aux ae1) (compile_aux ae2 ++ ADD :: nil) bcis).
+   rewrite <- (append_is_associative (compile_aux ae2) (ADD :: nil) bcis).
+   rewrite -> (fold_unfold_append_cons (ADD) nil bcis).
+   rewrite -> (fold_unfold_append_nil bcis).
+   rewrite -> (IHae1 (compile_aux ae2 ++ ADD :: bcis) n).
+   rewrite -> (IHae2 (ADD :: bcis) (S n)).
+
+   exact (fold_unfold_verify_aux_cons ADD bcis (S (S n))).
+ - intros bcis n.
+   rewrite -> (fold_unfold_compile_aux_Minus ae1 ae2).
+   rewrite <- (append_is_associative (compile_aux ae1) (compile_aux ae2 ++ SUB :: nil) bcis).
+   rewrite <- (append_is_associative (compile_aux ae2) (SUB :: nil) bcis).
+   rewrite -> (fold_unfold_append_cons SUB nil bcis).
+   rewrite -> (fold_unfold_append_nil bcis).
+   rewrite -> (IHae1 (compile_aux ae2 ++ SUB :: bcis) n).
+   rewrite -> (IHae2 (SUB :: bcis) (S n)).
+   exact (fold_unfold_verify_aux_cons SUB bcis (S (S n))).
+Qed.
+
+(* auxiliary lemma for auxiliary function *)
+
+Lemma compiler_aux_emits_well_behaved_code :
   forall ae : arithmetic_expression,
     verify_aux (compile_aux ae) 0 = Some 1.
 Proof.
   intro ae.
-  induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2].
+  destruct ae as [n | ae1 ae2 | ae1 ae2].
   - reflexivity.
   - rewrite -> (fold_unfold_compile_aux_Plus ae1 ae2).
     rewrite -> (about_verifying ae1 (compile_aux ae2 ++ ADD :: nil) 0).
     rewrite -> (about_verifying ae2 (ADD :: nil) 1).
-    rewrite -> IHae1.
-    rewrite -> IHae2.
-    rewrite -> fold_unfold_verify_aux_cons.
-    rewrite -> fold_unfold_verify_aux_nil.
     reflexivity.
   - rewrite -> (fold_unfold_compile_aux_Minus ae1 ae2).
     rewrite -> (about_verifying ae1 (compile_aux ae2 ++ SUB :: nil) 0).
     rewrite -> (about_verifying ae2 (SUB :: nil) 1).
-    rewrite -> IHae1.
-    rewrite -> IHae2.
-    rewrite -> fold_unfold_verify_aux_cons.
-    rewrite -> fold_unfold_verify_aux_nil.
     reflexivity.
 Qed.
 
@@ -1745,7 +1777,7 @@ Theorem the_compiler_emits_well_behaved_code :
 Proof.
   intro ae.
   unfold verify, compile.
-  rewrite -> the_compiler_emits_well_behaved_code_for_aux.
+  rewrite -> (compiler_aux_emits_well_behaved_code ae).
   reflexivity.
 Qed.
 
@@ -1755,12 +1787,63 @@ Qed.
 
 (* ********** *)
 
-(* Task 11:
-
-   a. Write a Magritte interpreter for the source language
+(* Task 11 *)
+(* a. Write a Magritte interpreter for the source language
       that does not operate on natural numbers
-      but on syntactic representations of natural numbers.
+      but on syntactic representations of natural numbers.*)
 
+
+Inductive Nat : Type :=
+| O : Nat
+| S : Nat -> Nat.
+
+(* Arithmetic expressions: *)
+
+Inductive arithmetic_expression' : Type :=
+| Literal' : Nat -> arithmetic_expression'
+| Plus' : arithmetic_expression' -> arithmetic_expression' -> arithmetic_expression'
+| Minus' : arithmetic_expression' -> arithmetic_expression' -> arithmetic_expression'.
+
+(* Source programs: *)
+
+ Inductive source_program' : Type :=
+ | Source_program' : arithmetic_expression' -> source_program'.
+
+ (* Semantics: *)
+
+Inductive expressible_value' : Type :=
+| Expressible_nat' : Nat -> expressible_value'
+| Expressible_msg' : string -> expressible_value'.
+
+Fixpoint evaluate' (ae: arithmetic_expression') : expressible_value' :=
+  match ae with
+  | Literal' n =>
+    Expressible_nat' n
+  | Plus' ae1 ae2  =>
+    match evaluate' ae1 with
+    | Expressible_msg' s1 => Expressible_msg' s1
+    | Expressible_nat' n1 => match evaluate' ae2 with
+                            | Expressible_msg' s2 => Expressible_msg' s2
+                            | Expressible_nat' n2 => Expressible_nat' (n1 + n2)
+                            end
+    end
+  | Minus' ae1 ae2  =>
+    match evaluate' ae1 with
+    | Expressible_msg' s1 => Expressible_msg' s1
+    | Expressible_nat' n1 => match evaluate' ae2 with
+                            | Expressible_msg' s2 => Expressible_msg' s2
+                            | Expressible_nat' n2 =>
+                              if n1 <? n2
+                              then Expressible_msg'
+                                     (String.append "numerical underflow: -" (string_of_nat (n2 - n1)))
+                              else Expressible_nat' (n1 - n2)
+                            end
+    end
+  end.
+
+
+
+(*
    b. Write a Magritte interpreter for the target language
       that does not operate on natural numbers
       but on syntactic representations of natural numbers.
