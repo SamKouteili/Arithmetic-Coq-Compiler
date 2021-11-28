@@ -1716,25 +1716,24 @@ Proof.
     rewrite -> (fold_unfold_append_cons (PUSH k) nil bcis).
     rewrite -> (fold_unfold_append_nil bcis).
     exact (fold_unfold_verify_aux_cons (PUSH k) bcis n).
- - intros bcis n.
-   rewrite -> (fold_unfold_compile_aux_Plus ae1 ae2).
-   rewrite <- (app_assoc (compile_aux ae1) (compile_aux ae2 ++ ADD :: nil) bcis).
-   rewrite <- (app_assoc (compile_aux ae2) (ADD :: nil) bcis).
-   rewrite -> (fold_unfold_append_cons (ADD) nil bcis).
-   rewrite -> (fold_unfold_append_nil bcis).
-   rewrite -> (IHae1 (compile_aux ae2 ++ ADD :: bcis) n).
-   rewrite -> (IHae2 (ADD :: bcis) (S n)).
-
-   exact (fold_unfold_verify_aux_cons ADD bcis (S (S n))).
- - intros bcis n.
-   rewrite -> (fold_unfold_compile_aux_Minus ae1 ae2).
-   rewrite <- (app_assoc (compile_aux ae1) (compile_aux ae2 ++ SUB :: nil) bcis).
-   rewrite <- (app_assoc (compile_aux ae2) (SUB :: nil) bcis).
-   rewrite -> (fold_unfold_append_cons SUB nil bcis).
-   rewrite -> (fold_unfold_append_nil bcis).
-   rewrite -> (IHae1 (compile_aux ae2 ++ SUB :: bcis) n).
-   rewrite -> (IHae2 (SUB :: bcis) (S n)).
-   exact (fold_unfold_verify_aux_cons SUB bcis (S (S n))).
+  - intros bcis n.
+    rewrite -> (fold_unfold_compile_aux_Plus ae1 ae2).
+    rewrite <- (app_assoc (compile_aux ae1) (compile_aux ae2 ++ ADD :: nil) bcis).
+    rewrite <- (app_assoc (compile_aux ae2) (ADD :: nil) bcis).
+    rewrite -> (fold_unfold_append_cons (ADD) nil bcis).
+    rewrite -> (fold_unfold_append_nil bcis).
+    rewrite -> (IHae1 (compile_aux ae2 ++ ADD :: bcis) n).
+    rewrite -> (IHae2 (ADD :: bcis) (S n)).
+    exact (fold_unfold_verify_aux_cons ADD bcis (S (S n))).
+  - intros bcis n.
+    rewrite -> (fold_unfold_compile_aux_Minus ae1 ae2).
+    rewrite <- (app_assoc (compile_aux ae1) (compile_aux ae2 ++ SUB :: nil) bcis).
+    rewrite <- (app_assoc (compile_aux ae2) (SUB :: nil) bcis).
+    rewrite -> (fold_unfold_append_cons SUB nil bcis).
+    rewrite -> (fold_unfold_append_nil bcis).
+    rewrite -> (IHae1 (compile_aux ae2 ++ SUB :: bcis) n).
+    rewrite -> (IHae2 (SUB :: bcis) (S n)).
+    exact (fold_unfold_verify_aux_cons SUB bcis (S (S n))).
 Qed.
 
 (* auxiliary lemma for auxiliary function *)
@@ -1772,71 +1771,110 @@ Qed.
 
 (* ********** *)
 
+Definition magritte_data_stack := list arithmetic_expression.
+
+Inductive magritte_expressible_value : Type :=
+  | MExpressible_nat : arithmetic_expression -> magritte_expressible_value
+  | MExpressible_msg : string -> magritte_expressible_value.
+
+
 (* Task 11 *)
 (* a. Write a Magritte interpreter for the source language
       that does not operate on natural numbers
       but on syntactic representations of natural numbers.*)
 
-
-Inductive Nat : Type :=
-| O : Nat
-| S : Nat -> Nat.
-
-(* Arithmetic expressions: *)
-
-Inductive arithmetic_expression' : Type :=
-| Literal' : Nat -> arithmetic_expression'
-| Plus' : arithmetic_expression' -> arithmetic_expression' -> arithmetic_expression'
-| Minus' : arithmetic_expression' -> arithmetic_expression' -> arithmetic_expression'.
-
-(* Source programs: *)
-
- Inductive source_program' : Type :=
- | Source_program' : arithmetic_expression' -> source_program'.
-
- (* Semantics: *)
-
-Inductive expressible_value' : Type :=
-| Expressible_nat' : Nat -> expressible_value'
-| Expressible_msg' : string -> expressible_value'.
-
-Fixpoint evaluate' (ae: arithmetic_expression') : expressible_value' :=
-  match ae with
-  | Literal' n =>
-    Expressible_nat' n
-  | Plus' ae1 ae2  =>
-    match evaluate' ae1 with
-    | Expressible_msg' s1 => Expressible_msg' s1
-    | Expressible_nat' n1 => match evaluate' ae2 with
-                            | Expressible_msg' s2 => Expressible_msg' s2
-                            | Expressible_nat' n2 => Expressible_nat' (n1 + n2)
-                            end
+Fixpoint magritte_evaluate (ae: arithmetic_expression) : magritte_expressible_value :=
+  match ae with 
+  | Literal n =>
+    MExpressible_nat ae
+  | Plus ae1 ae2  =>
+    match magritte_evaluate ae1 with
+  | MExpressible_msg s1 => MExpressible_msg s1
+  | MExpressible_nat ae1' => match magritte_evaluate ae2 with
+                             | MExpressible_msg s2 => MExpressible_msg s2
+                             | MExpressible_nat ae2' => MExpressible_nat (Plus ae1' ae2')
+                             end
     end
-  | Minus' ae1 ae2  =>
-    match evaluate' ae1 with
-    | Expressible_msg' s1 => Expressible_msg' s1
-    | Expressible_nat' n1 => match evaluate' ae2 with
-                            | Expressible_msg' s2 => Expressible_msg' s2
-                            | Expressible_nat' n2 =>
-                              if n1 <? n2
-                              then Expressible_msg'
-                                     (String.append "numerical underflow: -" (string_of_nat (n2 - n1)))
-                              else Expressible_nat' (n1 - n2)
-                            end
+  | Minus ae1 ae2  =>
+    match magritte_evaluate ae1 with
+    | MExpressible_msg s1 => MExpressible_msg s1
+    | MExpressible_nat ae1' => match magritte_evaluate ae2 with
+                               | MExpressible_msg s2 => MExpressible_msg s2
+                               | MExpressible_nat ae2' => MExpressible_nat (Minus ae1' ae2')                       
+                               end
     end
   end.
 
-
+Definition magritte_interpret (sp : source_program) : magritte_expressible_value :=
+  match sp with
+  | Source_program ae => magritte_evaluate ae
+  end.
 
 (*
    b. Write a Magritte interpreter for the target language
       that does not operate on natural numbers
       but on syntactic representations of natural numbers.
+ *)
 
+Inductive magritte_result_of_decoding_and_execution : Type :=
+| MOK : magritte_data_stack -> magritte_result_of_decoding_and_execution
+| MKO : string -> magritte_result_of_decoding_and_execution.
+
+Definition magritte_decode_execute (bcis : byte_code_instruction) (ds : magritte_data_stack) : magritte_result_of_decoding_and_execution :=
+  match bcis with
+  | PUSH n =>
+    MOK ((Literal n) :: ds)
+  | ADD =>
+    match ds with
+    | nil => MKO "ADD: stack underflow"
+    | (ae2 :: nil) => MKO "ADD: stack underflow"
+    | (ae2 :: ae1 :: ds) => MOK ((Plus ae1 ae2) :: ds)
+    end
+  | SUB =>
+    match ds with
+    | nil => MKO "SUB: stack underflow"
+    | (ae2 :: nil) => MKO "SUB: stack underflow"
+    | (ae2 :: ae1 :: ds) => MOK ((Minus ae1 ae2) :: ds)
+    end
+  end.
+
+Fixpoint magritte_fetch_decode_execute_loop (bcis : list byte_code_instruction) (ds : magritte_data_stack) : magritte_result_of_decoding_and_execution :=
+    match bcis with
+    | nil =>
+      MOK ds
+    | bci :: bcis' =>
+      match magritte_decode_execute bci ds with
+      | MOK ds' => magritte_fetch_decode_execute_loop bcis' ds'
+      | MKO s => MKO s
+      end
+    end.
+
+Definition magritte_run (t : target_program) : magritte_expressible_value :=
+  match t with
+  | Target_program bcis =>
+    match magritte_fetch_decode_execute_loop bcis nil with
+    | MKO s =>
+      MExpressible_msg s
+    | MOK ds => 
+      match ds with
+      | nil => MExpressible_msg "no result on the data stack"
+      | ae :: ds' => 
+        match ds' with
+        | nil => MExpressible_nat ae
+        | ae' :: ds'' => MExpressible_msg "too many results on the data stack"
+        end
+      end
+    end
+  end.
+
+(*
    c. Prove that interpreting an arithmetic expression with the Magritte source interpreter
       gives the same result as first compiling it and then executing the compiled program
       with the Magritte target interpreter over an empty data stack.
+ *)
 
+
+(*
    d. Prove that the Magritte target interpreter is (essentially)
       a left inverse of the compiler, i.e., it is a decompiler.
 *)
