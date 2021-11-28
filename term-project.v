@@ -260,9 +260,7 @@ Proof.
        destruct S_eval2 as [_ [[_ [S_plus_n1s2' _]] _] ].
        rewrite -> (S_plus_n1s2 ae1 ae2 n0 s0 eval1ae1 eval1ae2).
        rewrite -> (S_plus_n1s2' ae1 ae2 n s eval2ae1 eval2ae2).
-       injection IHae2 as IHae2.
-       rewrite -> IHae2.
-       reflexivity.
+       exact IHae2.
     -- discriminate IHae2.
     -- discriminate IHae1.
     -- discriminate IHae1.
@@ -271,9 +269,7 @@ Proof.
        destruct S_eval2 as [_ [[S_plus_s1' _] _]].
        rewrite -> (S_plus_s1' ae1 ae2 s eval2ae1).
        rewrite -> (S_plus_s1 ae1 ae2 s0 eval1ae1).
-       injection IHae1 as IHae1.
-       rewrite -> IHae1.
-       reflexivity.
+       exact IHae1.
     -- discriminate IHae2.
     -- discriminate IHae2.
     -- discriminate IHae1.
@@ -282,9 +278,7 @@ Proof.
        destruct S_eval2 as [_ [[S_plus_s1' _] _]].
        rewrite -> (S_plus_s1' ae1 ae2 s eval2ae1).
        rewrite -> (S_plus_s1 ae1 ae2 s1 eval1ae1).
-       injection IHae1 as IHae1.
-       rewrite -> IHae1.
-       reflexivity.
+       exact IHae1.
 
   (* ae is Minus *)
   - destruct (eval2 ae1) eqn:eval2ae1;
@@ -647,12 +641,12 @@ Theorem interpret_satisfies_the_specification_of_interpret :
   specification_of_interpret interpret.
 Proof.
   unfold specification_of_interpret, interpret.
-  intros eval s_eval ae.
+  intros eval S_eval ae.
   exact (there_is_at_most_one_evaluate_function
            evaluate
            eval
            evaluate_satisfies_the_specification_of_evaluate
-           s_eval
+           S_eval
            ae).
 Qed.
 
