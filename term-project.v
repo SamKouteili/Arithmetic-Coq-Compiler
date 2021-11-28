@@ -230,82 +230,120 @@ Theorem there_is_at_most_one_evaluate_function :
 Proof.
   intros eval1 eval2 S_eval1 S_eval2 ae.
   induction ae as [n | ae1 IHae1 ae2 IHae2 | ae1 IHae1 ae2 IHae2].
-  destruct S_eval1 as [S_literal1 _].
-  destruct S_eval2 as [S_literal2 _].
-  rewrite -> (S_literal2 n).
-  exact (S_literal1 n).
-  destruct (eval2 ae1) eqn:eval2ae1.
-  destruct (eval2 ae2) eqn:eval2ae2.
-  destruct (eval1 ae1) eqn:eval1ae1.
-  destruct (eval1 ae2) eqn:eval1ae2.
-  + destruct S_eval1 as [_ [[_ [_ S_plus_n1n2]] _] ].
-    destruct S_eval2 as [_ [[_ [_ S_plus_n1n2']] _] ].
-    Check (S_plus_n1n2 ae1 ae2 n1 n2 eval1ae1 eval1ae2).
-    rewrite -> (S_plus_n1n2 ae1 ae2 n1 n2 eval1ae1 eval1ae2).
-    rewrite -> (S_plus_n1n2' ae1 ae2 n n0 eval2ae1 eval2ae2).
-    injection IHae1 as IHae1.
-    injection IHae2 as IHae2.
-    rewrite -> IHae1.
-    rewrite -> IHae2.
-    reflexivity.
-  + discriminate IHae2.
-  + discriminate IHae1.
-  + destruct S_eval1 as [_ [[_ [S_plus_n1s2 _]] _] ].
-    destruct S_eval2 as [_ [[_ [S_plus_n1s2' _]] _] ].
-    rewrite -> (S_plus_n1s2 ae1 ae2 n s IHae1 IHae2).
-    rewrite -> (S_plus_n1s2' ae1 ae2 n s eval2ae1 eval2ae2).
-    reflexivity.
-  + destruct S_eval1 as [_ [[S_plus_s1 _] _]].
-    destruct S_eval2 as [_ [[S_plus_s1' _] _]].
-    rewrite -> (S_plus_s1' ae1 ae2 s eval2ae1).
-    exact (S_plus_s1 ae1 ae2 s IHae1).
-  + destruct (eval2 ae1) eqn:eval2ae1.
-    destruct (eval2 ae2) eqn:eval2ae2.
-    destruct (eval1 ae1) eqn:eval1ae1.
-    destruct (eval1 ae2) eqn:eval1ae2.
-    * case (n1 <? n2) eqn:H_n1_n2;
-      case (n <? n0) eqn:H_n_n0;
-      injection IHae1 as IHae1;
-      injection IHae2 as IHae2.
-      - destruct S_eval1 as [_ [_ [_ [_ [S_minus_n1n2err _]]]]].
-        destruct S_eval2 as [_ [_ [_ [_ [S_minus_n1n2err' _]]]]].
-        rewrite -> (S_minus_n1n2err' ae1 ae2 n n0 eval2ae1 eval2ae2 H_n_n0).
-        rewrite -> (S_minus_n1n2err ae1 ae2 n1 n2 eval1ae1 eval1ae2 H_n1_n2).
-        rewrite -> IHae1.
-        rewrite -> IHae2.
-        reflexivity.
-      - rewrite -> IHae1 in H_n1_n2.
-        rewrite -> IHae2 in H_n1_n2.
-        rewrite -> H_n_n0 in H_n1_n2.
-        discriminate H_n1_n2.
-      - rewrite -> IHae1 in H_n1_n2.
-        rewrite -> IHae2 in H_n1_n2.
-        rewrite -> H_n_n0 in H_n1_n2.
-        discriminate H_n1_n2.
-      - destruct S_eval1 as [_ [_ [_ [_ [_ S_minus_n1n2]]]]].
-        destruct S_eval2 as [_ [_ [_ [_ [_ S_minus_n1n2']]]]].
-        rewrite -> (S_minus_n1n2' ae1 ae2 n n0 eval2ae1 eval2ae2 H_n_n0).
-        rewrite -> (S_minus_n1n2 ae1 ae2 n1 n2 eval1ae1 eval1ae2 H_n1_n2).
-        rewrite -> IHae1.
-        rewrite -> IHae2.
-        reflexivity.
-        * discriminate IHae2.
-        * discriminate IHae1.
-        * destruct S_eval1 as [_ [_ [_ [S_minus_n1s2 _]]]].
-          destruct S_eval2 as [_ [_ [_ [S_minus_n1s2' _]]]].
-          rewrite -> (S_minus_n1s2' ae1 ae2 n s eval2ae1 eval2ae2).
-          exact (S_minus_n1s2 ae1 ae2 n s IHae1 IHae2).
-        * destruct (eval1 ae2) eqn:eval1ae2.
-          destruct (eval2 ae2) eqn:eval2ae2.
-          destruct S_eval1 as [_ [_ [S_minus_s1 _]]].
-          destruct S_eval2 as [_ [_ [S_minus_s1' _]]].
-          rewrite -> (S_minus_s1' ae1 ae2 s eval2ae1).
-          exact (S_minus_s1 ae1 ae2 s IHae1).
-          discriminate IHae2.
-          destruct S_eval1 as [_ [_ [S_minus_s1 _]]].
-          destruct S_eval2 as [_ [_ [S_minus_s1' _]]].
-          rewrite -> (S_minus_s1' ae1 ae2 s eval2ae1).
-          exact (S_minus_s1 ae1 ae2 s IHae1).
+
+  (* ae is a Literal *)
+  - destruct S_eval1 as [S_literal1 _].
+    destruct S_eval2 as [S_literal2 _].
+    rewrite -> (S_literal2 n).
+    exact (S_literal1 n).
+
+  (* ae is Plus *)
+  - destruct (eval2 ae1) eqn:eval2ae1;
+      destruct (eval2 ae2) eqn:eval2ae2;
+      destruct (eval1 ae1) eqn:eval1ae1;
+      destruct (eval1 ae2) eqn:eval1ae2.
+    -- destruct S_eval1 as [_ [[_ [_ S_plus_n1n2]] _] ].
+       destruct S_eval2 as [_ [[_ [_ S_plus_n1n2']] _] ].
+       Check (S_plus_n1n2 ae1 ae2 n1 n2 eval1ae1 eval1ae2).
+       rewrite -> (S_plus_n1n2 ae1 ae2 n1 n2 eval1ae1 eval1ae2).
+       rewrite -> (S_plus_n1n2' ae1 ae2 n n0 eval2ae1 eval2ae2).
+       injection IHae1 as IHae1.
+       injection IHae2 as IHae2.
+       rewrite -> IHae1.
+       rewrite -> IHae2.
+       reflexivity.
+    -- discriminate IHae2.
+    -- discriminate IHae1.
+    -- discriminate IHae1.
+    -- discriminate IHae2.
+    -- destruct S_eval1 as [_ [[_ [S_plus_n1s2 _]] _] ].
+       destruct S_eval2 as [_ [[_ [S_plus_n1s2' _]] _] ].
+       rewrite -> (S_plus_n1s2 ae1 ae2 n0 s0 eval1ae1 eval1ae2).
+       rewrite -> (S_plus_n1s2' ae1 ae2 n s eval2ae1 eval2ae2).
+       exact IHae2.
+    -- discriminate IHae2.
+    -- discriminate IHae1.
+    -- discriminate IHae1.
+    -- discriminate IHae2.
+    -- destruct S_eval1 as [_ [[S_plus_s1 _] _]].
+       destruct S_eval2 as [_ [[S_plus_s1' _] _]].
+       rewrite -> (S_plus_s1' ae1 ae2 s eval2ae1).
+       rewrite -> (S_plus_s1 ae1 ae2 s0 eval1ae1).
+       exact IHae1.
+    -- discriminate IHae2.
+    -- discriminate IHae2.
+    -- discriminate IHae1.
+    -- discriminate IHae2.
+    -- destruct S_eval1 as [_ [[S_plus_s1 _] _]].
+       destruct S_eval2 as [_ [[S_plus_s1' _] _]].
+       rewrite -> (S_plus_s1' ae1 ae2 s eval2ae1).
+       rewrite -> (S_plus_s1 ae1 ae2 s1 eval1ae1).
+       exact IHae1.
+
+  (* ae is Minus *)
+  - destruct (eval2 ae1) eqn:eval2ae1;
+      destruct (eval2 ae2) eqn:eval2ae2;
+      destruct (eval1 ae1) eqn:eval1ae1;
+      destruct (eval1 ae2) eqn:eval1ae2.
+    -- case (n1 <? n2) eqn:H_n1_n2;
+         case (n <? n0) eqn:H_n_n0.
+       --- destruct S_eval1 as [_ [_ [_ [_ [S_minus_n1n2err _]]]]].
+           destruct S_eval2 as [_ [_ [_ [_ [S_minus_n1n2err' _]]]]].
+           rewrite -> (S_minus_n1n2err' ae1 ae2 n n0 eval2ae1 eval2ae2 H_n_n0).
+           rewrite -> (S_minus_n1n2err ae1 ae2 n1 n2 eval1ae1 eval1ae2 H_n1_n2).
+           injection IHae1 as IHae1.
+           injection IHae2 as IHae2.
+           rewrite -> IHae1.
+           rewrite -> IHae2.
+           reflexivity.
+       --- injection IHae1 as IHae1.
+           injection IHae2 as IHae2.
+           rewrite -> IHae1 in H_n1_n2.
+           rewrite -> IHae2 in H_n1_n2.
+           rewrite -> H_n_n0 in H_n1_n2.
+           discriminate H_n1_n2.
+       --- injection IHae1 as IHae1.
+           injection IHae2 as IHae2.
+           rewrite -> IHae2 in H_n1_n2.
+           rewrite -> IHae1 in H_n1_n2.
+           rewrite -> H_n1_n2 in H_n_n0.
+           discriminate H_n_n0.
+       --- destruct S_eval1 as [_ [_ [_ [_ [_ S_minus_n1n2]]]]].
+           destruct S_eval2 as [_ [_ [_ [_ [_ S_minus_n1n2']]]]].
+           rewrite -> (S_minus_n1n2' ae1 ae2 n n0 eval2ae1 eval2ae2 H_n_n0).
+           rewrite -> (S_minus_n1n2 ae1 ae2 n1 n2 eval1ae1 eval1ae2 H_n1_n2).
+           injection IHae1 as IHae1.
+           injection IHae2 as IHae2.
+           rewrite -> IHae1.
+           rewrite -> IHae2.
+           reflexivity.
+    -- discriminate IHae2.
+    -- discriminate IHae1.
+    -- discriminate IHae2.
+    -- discriminate IHae2.
+    -- destruct S_eval1 as [_ [_ [_ [S_minus_n1s2 _]]]].
+       destruct S_eval2 as [_ [_ [_ [S_minus_n1s2' _]]]].
+       rewrite -> (S_minus_n1s2' ae1 ae2 n s eval2ae1 eval2ae2).
+       rewrite -> (S_minus_n1s2 ae1 ae2 n0 s0 eval1ae1 eval1ae2).
+       exact IHae2.
+    -- discriminate IHae2.
+    -- discriminate IHae1.
+    -- discriminate IHae1.
+    -- discriminate IHae1.
+    -- destruct S_eval1 as [_ [_ [S_minus_s1 _]]].
+       destruct S_eval2 as [_ [_ [S_minus_s1' _]]].
+       rewrite -> (S_minus_s1' ae1 ae2 s eval2ae1).
+       rewrite -> (S_minus_s1 ae1 ae2 s0 eval1ae1).
+       exact IHae1.
+    -- discriminate IHae2.
+    -- discriminate IHae2.
+    -- discriminate IHae1.
+    -- discriminate IHae2.
+    -- destruct S_eval1 as [_ [_ [S_minus_s1 _]]].
+       destruct S_eval2 as [_ [_ [S_minus_s1' _]]].
+       rewrite -> (S_minus_s1' ae1 ae2 s eval2ae1).
+       rewrite -> (S_minus_s1 ae1 ae2 s1 eval1ae1).
+       exact IHae1.
 
   Restart.
   
@@ -603,12 +641,12 @@ Theorem interpret_satisfies_the_specification_of_interpret :
   specification_of_interpret interpret.
 Proof.
   unfold specification_of_interpret, interpret.
-  intros eval s_eval ae.
+  intros eval S_eval ae.
   exact (there_is_at_most_one_evaluate_function
            evaluate
            eval
            evaluate_satisfies_the_specification_of_evaluate
-           s_eval
+           S_eval
            ae).
 Qed.
 
