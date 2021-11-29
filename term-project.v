@@ -1,27 +1,11 @@
 (* term-project.v *)
 (* FPP 2021 - YSC3236 2021-2022, Sem1 *)
-(* Olivier Danvy <danvy@yale-nus.edu.sg> *)
-(* Version of 08 Nov 2021 *)
+(* Version of 29 Nov 2021 *)
+(* group name: FPP Healthy Snacks *)
 
 (* ********** *)
 
 (* Three language processors for arithmetic expressions. *)
-
-(*
-   group name:
-
-   student name:
-   e-mail address:
-   student ID number:
-
-   student name:
-   e-mail address:
-   student ID number:
-
-   student name:
-   e-mail address:
-   student ID number:
-*)
 
 (* ********** *)
 
@@ -70,7 +54,7 @@ for
     compile : source_program -> target_program
 
 * a target interpreter
-
+1
     run : target_program -> expressible_value
 
 The source for errors is subtraction,
@@ -1821,6 +1805,7 @@ Inductive magritte_expressible_value : Type :=
       that does not operate on natural numbers
       but on syntactic representations of natural numbers.*)
 
+(*
 Fixpoint magritte_evaluate (ae: arithmetic_expression) : magritte_expressible_value :=
   match ae with 
   | Literal n =>
@@ -1847,6 +1832,7 @@ Definition magritte_interpret (sp : source_program) : magritte_expressible_value
   match sp with
   | Source_program ae => magritte_evaluate ae
   end.
+ *)
 
 (*
    b. Write a Magritte interpreter for the target language
@@ -1854,6 +1840,7 @@ Definition magritte_interpret (sp : source_program) : magritte_expressible_value
       but on syntactic representations of natural numbers.
  *)
 
+(*
 Inductive magritte_result_of_decoding_and_execution : Type :=
 | MOK : magritte_data_stack -> magritte_result_of_decoding_and_execution
 | MKO : string -> magritte_result_of_decoding_and_execution.
@@ -1904,6 +1891,7 @@ Definition magritte_run (t : target_program) : magritte_expressible_value :=
       end
     end
   end.
+*)
 
 (*
    c. Prove that interpreting an arithmetic expression with the Magritte source interpreter
